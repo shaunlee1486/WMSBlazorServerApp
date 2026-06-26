@@ -1,0 +1,55 @@
+<span class="wms-status-badge @(IsActive ? "active" : "inactive")">
+    <span class="status-dot"></span>
+    @(IsActive ? ActiveText : InactiveText)
+</span>
+
+<style>
+    .wms-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+    
+    .wms-status-badge.active {
+        background-color: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+    }
+    
+    .wms-status-badge.inactive {
+        background-color: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+    }
+    
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    
+    .active .status-dot {
+        background-color: #10b981;
+        box-shadow: 0 0 8px #10b981;
+    }
+    
+    .inactive .status-dot {
+        background-color: #ef4444;
+        box-shadow: 0 0 8px #ef4444;
+    }
+</style>
+
+@code {
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public string ActiveText { get; set; } = "Active";
+    [Parameter] public string InactiveText { get; set; } = "Inactive";
+}

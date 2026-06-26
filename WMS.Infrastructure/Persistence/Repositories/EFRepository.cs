@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using WMS.Domain.Interfaces;
+using WMS.SharedKernel;
 
 namespace WMS.Infrastructure.Persistence.Repositories;
 
@@ -48,5 +49,47 @@ public class EFRepository<T> : IRepository<T> where T : class
     public virtual void Delete(T entity)
     {
         DbSet.Remove(entity);
+    }
+
+    public virtual async Task<PagedResult<T>> GetPagedAsync(
+        Expression<Func<T, bool>>? predicate,
+        string? sortColumn,
+        string? sortOrder,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking();
+
+        if (predicate != null)
+        {
+            query = query.Where(predicate);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(sortColumn))
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+            var property = Expression.Property(parameter, sortColumn);
+            var conversion = Expression.Convert(property, typeof(object));
+            var lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);
+
+            if (sortOrder?.ToLower() == "desc")
+            {
+                query = query.OrderByDescending(lambda);
+            }
+            else
+            {
+                query = query.OrderBy(lambda);
+            }
+        }
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<T>(items, totalCount, page, pageSize);
     }
 }

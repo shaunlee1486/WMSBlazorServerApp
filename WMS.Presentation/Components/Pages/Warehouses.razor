@@ -1,14 +1,323 @@
 @page "/warehouses"
 @attribute [Authorize]
+@inject IMediator Mediator
 
 <PageTitle>WMS - Warehouses</PageTitle>
 
-<div class="dashboard-header" style="margin-bottom: 32px;">
-    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Warehouses</h1>
-    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Warehouse node configuration & zone locations management</p>
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Warehouses</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Configure warehouse nodes, storage zones, and locations.</p>
+    </div>
+    <button class="btn btn-primary" @onclick="OpenAddModal" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px;">
+        <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Warehouse
+    </button>
 </div>
 
-<div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 28px;">
-    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">Master Data - Warehouses</h3>
-    <p style="color: var(--text-muted); line-height: 1.6;">This module is part of <strong>Phase 2: Master Data Management</strong>. Solution scaffolding is complete, database schema is generated, and the system is ready to receive the warehouse registry CRUD use cases.</p>
+<!-- Search & Filtering -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center;">
+    <div class="input-group" style="flex: 1; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+        <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" class="form-control" placeholder="Search by code, name, address..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none;" />
+    </div>
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 8px 16px; border-radius: 8px;">
+        Filter
+    </button>
 </div>
+
+<!-- Main Table -->
+@if (warehouses == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="WMS.Application.Features.Warehouses.DTOs.WarehouseDto"
+               Items="warehouses"
+               ColSpan="5"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Address</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+        </HeaderTemplate>
+        <RowTemplate Context="warehouse">
+            <td style="font-weight: 600; color: var(--text-main);">@warehouse.Code</td>
+            <td>@warehouse.Name</td>
+            <td style="color: var(--text-muted);">@(string.IsNullOrEmpty(warehouse.Address) ? "N/A" : warehouse.Address)</td>
+            <td>
+                <StatusBadge IsActive="warehouse.IsActive" />
+            </td>
+            <td class="text-end">
+                <div style="display: inline-flex; gap: 8px;">
+                    <button class="btn btn-sm btn-icon" @onclick="() => ToggleStatus(warehouse)" title="Toggle Status" style="padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2);">
+                        <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                            <line x1="12" y1="2" x2="12" y2="12"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-sm btn-icon" @onclick="() => OpenEditModal(warehouse)" title="Edit" style="padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2);">
+                        <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-sm btn-icon" @onclick="() => PromptDelete(warehouse)" title="Delete" style="padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--danger); background: rgba(239, 68, 68, 0.05);">
+                        <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                        </svg>
+                    </button>
+                </div>
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+<!-- Editor Modal Dialog -->
+@if (isEditorOpen)
+{
+    <div class="wms-modal-backdrop">
+        <div class="wms-modal-card">
+            <div class="wms-modal-header">
+                <h3>@(editingWarehouseId == null ? "Add Warehouse" : "Edit Warehouse")</h3>
+                <button class="close-btn" @onclick="CloseEditor">🗙</button>
+            </div>
+            
+            <EditForm Model="editorModel" OnValidSubmit="SaveWarehouse">
+                <DataAnnotationsValidator />
+                
+                <div class="wms-modal-body">
+                    @if (!string.IsNullOrEmpty(editorError))
+                    {
+                        <div class="alert alert-danger">
+                            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span>@editorError</span>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Warehouse Code</label>
+                        <div class="input-wrapper">
+                            <input type="text" class="form-control" @bind-value="editorModel.Code" placeholder="e.g., WH-003" disabled="@(editingWarehouseId != null)" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Warehouse Name</label>
+                        <div class="input-wrapper">
+                            <input type="text" class="form-control" @bind-value="editorModel.Name" placeholder="e.g., West Coast Logistics Center" required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Address</label>
+                        <div class="input-wrapper">
+                            <textarea class="form-control" @bind="editorModel.Address" rows="3" placeholder="Enter physical location address"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="wms-modal-footer">
+                    <button type="button" class="btn" @onclick="CloseEditor" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 8px 16px; border-radius: 6px;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="padding: 8px 20px; border-radius: 6px; font-weight: 600;">Save Warehouse</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<!-- Delete Confirmation Dialog -->
+<ConfirmDialog IsOpen="isDeleteDialogOpen"
+               Title="Delete Warehouse"
+               Message="@($"Are you sure you want to delete warehouse {targetWarehouse?.Name} ({targetWarehouse?.Code})? This action soft-deletes the record and can be undone via DB.")"
+               ConfirmText="Delete"
+               IsDanger="true"
+               OnConfirm="DeleteWarehouse"
+               OnCancel="CancelDelete" />
+
+@code {
+    private IReadOnlyList<WMS.Application.Features.Warehouses.DTOs.WarehouseDto>? warehouses;
+    private string SearchTerm = string.Empty;
+    private string SortColumn = "Code";
+    private string SortOrder = "asc";
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+
+    // Modal State
+    private bool isEditorOpen = false;
+    private Guid? editingWarehouseId = null;
+    private WarehouseFormModel editorModel = new();
+    private string? editorError;
+
+    // Delete State
+    private bool isDeleteDialogOpen = false;
+    private WMS.Application.Features.Warehouses.DTOs.WarehouseDto? targetWarehouse;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Queries.GetWarehousesQuery(
+            SearchTerm, SortColumn, SortOrder, Page, PageSize));
+        
+        if (result.IsSuccess)
+        {
+            warehouses = result.Value.Items;
+            TotalCount = result.Value.TotalCount;
+        }
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+
+    // Modal Operations
+    private void OpenAddModal()
+    {
+        editingWarehouseId = null;
+        editorModel = new WarehouseFormModel();
+        editorError = null;
+        isEditorOpen = true;
+    }
+
+    private async Task OpenEditModal(WMS.Application.Features.Warehouses.DTOs.WarehouseDto warehouse)
+    {
+        editingWarehouseId = warehouse.Id;
+        editorError = null;
+
+        var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Queries.GetWarehouseByIdQuery(warehouse.Id));
+        if (result.IsSuccess)
+        {
+            editorModel = new WarehouseFormModel
+            {
+                Code = result.Value.Code,
+                Name = result.Value.Name,
+                Address = result.Value.Address
+            };
+            isEditorOpen = true;
+        }
+    }
+
+    private void CloseEditor()
+    {
+        isEditorOpen = false;
+    }
+
+    private async Task SaveWarehouse()
+    {
+        editorError = null;
+        Result result;
+
+        if (editingWarehouseId == null)
+        {
+            var commandResult = await Mediator.Send(new WMS.Application.Features.Warehouses.Commands.CreateWarehouseCommand(
+                editorModel.Code, editorModel.Name, editorModel.Address));
+            
+            result = commandResult;
+        }
+        else
+        {
+            result = await Mediator.Send(new WMS.Application.Features.Warehouses.Commands.UpdateWarehouseCommand(
+                editingWarehouseId.Value, editorModel.Code, editorModel.Name, editorModel.Address));
+        }
+
+        if (result.IsSuccess)
+        {
+            isEditorOpen = false;
+            await LoadData();
+        }
+        else
+        {
+            editorError = result.Error;
+        }
+    }
+
+    // Toggle active status
+    private async Task ToggleStatus(WMS.Application.Features.Warehouses.DTOs.WarehouseDto warehouse)
+    {
+        var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Commands.ToggleWarehouseStatusCommand(warehouse.Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+    }
+
+    // Delete Operations
+    private void PromptDelete(WMS.Application.Features.Warehouses.DTOs.WarehouseDto warehouse)
+    {
+        targetWarehouse = warehouse;
+        isDeleteDialogOpen = true;
+    }
+
+    private void CancelDelete()
+    {
+        isDeleteDialogOpen = false;
+        targetWarehouse = null;
+    }
+
+    private async Task DeleteWarehouse()
+    {
+        if (targetWarehouse != null)
+        {
+            var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Commands.DeleteWarehouseCommand(targetWarehouse.Id));
+            if (result.IsSuccess)
+            {
+                isDeleteDialogOpen = false;
+                targetWarehouse = null;
+                await LoadData();
+            }
+        }
+    }
+
+    private class WarehouseFormModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Address { get; set; }
+    }
+}

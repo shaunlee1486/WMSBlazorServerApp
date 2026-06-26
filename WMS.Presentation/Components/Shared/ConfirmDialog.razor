@@ -1,0 +1,119 @@
+@if (IsOpen)
+{
+    <div class="wms-modal-backdrop">
+        <div class="wms-modal-card">
+            <div class="wms-modal-header">
+                <h3>@Title</h3>
+                <button class="close-btn" @onclick="Cancel">🗙</button>
+            </div>
+            <div class="wms-modal-body">
+                <p>@Message</p>
+            </div>
+            <div class="wms-modal-footer">
+                <button class="btn btn-outline-secondary" @onclick="Cancel" style="border: 1px solid var(--card-border); color: var(--text-muted);">@CancelText</button>
+                <button class="btn @(IsDanger ? "btn-danger" : "btn-primary")" @onclick="Confirm">@ConfirmText</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .wms-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+    
+    .wms-modal-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        width: 100%;
+        max-width: 450px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @@keyframes modalFadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    
+    .wms-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .wms-modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    
+    .close-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 16px;
+    }
+    
+    .close-btn:hover {
+        color: var(--text-main);
+    }
+    
+    .wms-modal-body {
+        padding: 24px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    
+    .wms-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--card-border);
+        background-color: rgba(15, 23, 42, 0.2);
+        border-radius: 0 0 12px 12px;
+    }
+</style>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to perform this action?";
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public bool IsDanger { get; set; } = false;
+
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task Confirm()
+    {
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

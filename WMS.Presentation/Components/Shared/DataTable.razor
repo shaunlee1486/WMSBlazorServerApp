@@ -1,0 +1,150 @@
+@typeparam TItem
+
+<div class="table-container">
+    <table class="wms-table">
+        <thead>
+            <tr>
+                @HeaderTemplate
+            </tr>
+        </thead>
+        <tbody>
+            @if (Items == null || !Items.Any())
+            {
+                <tr>
+                    <td colspan="@ColSpan" class="text-center p-5 text-muted" style="border: none;">
+                        No records found.
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var item in Items)
+                {
+                    <tr>
+                        @RowTemplate(item)
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+    
+    @if (TotalCount > PageSize)
+    {
+        <div class="table-pagination">
+            <span class="pagination-info">
+                Showing @((Page - 1) * PageSize + 1) to @(Math.Min(Page * PageSize, TotalCount)) of @TotalCount entries
+            </span>
+            <div class="pagination-buttons">
+                <button class="btn btn-sm" disabled="@(!HasPreviousPage)" @onclick="PreviousPage" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px;">
+                    Previous
+                </button>
+                <span class="page-number">Page @Page of @TotalPages</span>
+                <button class="btn btn-sm" disabled="@(!HasNextPage)" @onclick="NextPage" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px;">
+                    Next
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .table-container {
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    .wms-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    
+    .wms-table th {
+        background-color: rgba(15, 23, 42, 0.6);
+        padding: 16px 24px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--card-border);
+    }
+    
+    .wms-table td {
+        padding: 16px 24px;
+        font-size: 14px;
+        color: var(--text-main);
+        border-bottom: 1px solid var(--card-border);
+        vertical-align: middle;
+    }
+    
+    .wms-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    .wms-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
+    
+    .table-pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px;
+        background-color: rgba(15, 23, 42, 0.4);
+        border-top: 1px solid var(--card-border);
+    }
+    
+    .pagination-info {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+    
+    .pagination-buttons {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .page-number {
+        font-size: 13px;
+        color: var(--text-main);
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem> Items { get; set; } = Array.Empty<TItem>();
+    [Parameter] public RenderFragment HeaderTemplate { get; set; } = null!;
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = null!;
+    [Parameter] public int ColSpan { get; set; }
+    
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
+    private bool HasPreviousPage => Page > 1;
+    private bool HasNextPage => Page < TotalPages;
+
+    private async Task PreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            await OnPageChanged.InvokeAsync(Page - 1);
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (HasNextPage)
+        {
+            await OnPageChanged.InvokeAsync(Page + 1);
+        }
+    }
+}
