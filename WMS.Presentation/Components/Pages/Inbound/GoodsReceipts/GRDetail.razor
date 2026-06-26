@@ -1,0 +1,226 @@
+@page "/inbound/goods-receipts/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Goods Receipt Details</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/inbound/goods-receipts" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Goods Receipts
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Goods Receipt Details
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Detailed audit trail of received goods and location allocations.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (gr == null)
+    {
+        <div class="alert alert-danger">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Goods receipt not found.</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: General Info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Receipt Details</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Receipt Number</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 16px; font-weight: 700; color: var(--text-main);">@gr.GRNumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">PO Reference</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 15px; color: var(--text-main);">@gr.PONumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Supplier</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@gr.SupplierName</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Date Received</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@gr.ReceivedDate.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Remarks</span>
+                    <div style="margin-top: 8px; font-size: 15px; color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--card-border); line-height: 1.5;">
+                        @(gr.Note ?? "No notes provided.")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Status Card -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 165px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Lifecycle Workflow</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">Status:</span>
+                        <span class="badge" style="background-color: @GetStatusBgColor(gr.Status); color: @GetStatusTextColor(gr.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(gr.Status)">
+                            @gr.Status
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Total SKU Items:</span>
+                        <span style="font-weight: 700; color: var(--text-main);">
+                            @gr.Items.Count
+                        </span>
+                    </div>
+                </div>
+
+                @if (gr.Status == "Draft")
+                {
+                    <button class="btn btn-primary" @onclick="CompleteReceipt" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 100%;">
+                        Complete Goods Receipt
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Received Line Details</h3>
+            
+            <DataTable TItem="WMS.Application.Features.GoodsReceipts.DTOs.GoodsReceiptItemDto"
+                       Items="gr.Items"
+                       ColSpan="5"
+                       Page="1"
+                       PageSize="99999"
+                       TotalCount="gr.Items.Count"
+                       OnPageChanged="_ => Task.CompletedTask">
+                <HeaderTemplate>
+                    <th>Product Code</th>
+                    <th>Product Name</th>
+                    <th>Allocated Location</th>
+                    <th style="text-align: right;">Received Qty</th>
+                    <th>Batch/Lot No</th>
+                    <th>Expiry Date</th>
+                </HeaderTemplate>
+                <RowTemplate Context="item">
+                    <td style="font-weight: 600; color: var(--text-main);">@item.ProductCode</td>
+                    <td>@item.ProductName</td>
+                    <td style="font-family: monospace; font-size: 13px; color: var(--text-muted);">@item.LocationBarcode</td>
+                    <td style="text-align: right; font-weight: 700; color: var(--success);">@item.ReceivedQty.ToString("N2")</td>
+                    <td>@(string.IsNullOrEmpty(item.BatchNo) ? "-" : item.BatchNo)</td>
+                    <td style="color: var(--text-muted); font-size: 13px;">@(item.ExpiryDate?.ToLocalTime().ToString("yyyy-MM-dd") ?? "N/A")</td>
+                </RowTemplate>
+            </DataTable>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private WMS.Application.Features.GoodsReceipts.DTOs.GoodsReceiptDto? gr;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        var result = await Mediator.Send(new GetGoodsReceiptByIdQuery(Id));
+        if (result.IsSuccess)
+        {
+            gr = result.Value;
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+        loading = false;
+    }
+
+    private async Task CompleteReceipt()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new CompleteGoodsReceiptCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",
+            "completed" => "rgba(16, 185, 129, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "completed" => "#34d399",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "completed" => "rgba(16, 185, 129, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

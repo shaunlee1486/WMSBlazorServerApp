@@ -1,0 +1,30 @@
+# Tasks
+
+- [x] Implement Domain Entities
+  - [x] `PurchaseOrder.cs`
+  - [x] `PurchaseOrderItem.cs`
+  - [x] `GoodsReceipt.cs`
+  - [x] `GoodsReceiptItem.cs`
+- [x] Implement Database Configurations & Repository Interfaces
+  - [x] `InboundConfigurations.cs`
+  - [x] Update `AppDbContext.cs`
+  - [x] `IPurchaseOrderRepository.cs` & `EFPurchaseOrderRepository.cs`
+  - [x] `IGoodsReceiptRepository.cs` & `EFGoodsReceiptRepository.cs`
+  - [x] Update `DependencyInjection.cs`
+- [x] Implement CQRS Features for Purchase Orders
+  - [x] DTOs and Validators
+  - [x] Commands (`CreatePurchaseOrder`, `UpdatePurchaseOrder`, `ConfirmPurchaseOrder`, `CancelPurchaseOrder`)
+  - [x] Queries (`GetPurchaseOrders`, `GetPurchaseOrderById`)
+- [x] Implement CQRS Features for Goods Receipts
+  - [x] DTOs and Validators
+  - [x] Commands (`CreateGoodsReceipt`, `CompleteGoodsReceipt`)
+  - [x] Queries (`GetGoodsReceipts`, `GetGoodsReceiptById`)
+- [x] Implement Presentation UI Pages
+  - [x] `POList.razor`
+  - [x] `POForm.razor`
+  - [x] `PODetail.razor`
+  - [x] `GRList.razor`
+  - [x] `GRForm.razor`
+  - [x] `GRDetail.razor`
+- [x] Update Layout Navigation Menu
+- [x] Build & Verify Compilation

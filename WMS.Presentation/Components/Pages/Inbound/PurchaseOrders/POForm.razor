@@ -1,0 +1,397 @@
+@page "/inbound/purchase-orders/new"
+@page "/inbound/purchase-orders/{Id:guid}/edit"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IRepository<WMS.Domain.Entities.MasterData.Supplier> SupplierRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository
+@inject IPurchaseOrderRepository PurchaseOrderRepository
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - @(IsEditMode ? $"Edit Purchase Order {poNumber}" : "New Purchase Order")</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/inbound/purchase-orders" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Purchase Orders
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        @(IsEditMode ? $"Edit Purchase Order {poNumber}" : "New Purchase Order")
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Draft and configure procurement orders to suppliers.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+        <!-- Left Panel: General info -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">General Details</h3>
+            
+            <div class="form-group">
+                <label>Supplier</label>
+                <div style="margin-top: 8px;">
+                    <select class="form-control" @bind="SupplierId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; cursor: pointer;">
+                        <option value="">-- Select Supplier --</option>
+                        @if (suppliers != null)
+                        {
+                            foreach (var s in suppliers)
+                            {
+                                <option value="@s.Id">@s.Name (@s.Code)</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px;">
+                <div class="form-group">
+                    <label>Expected Delivery Date</label>
+                    <div style="margin-top: 8px;">
+                        <input type="date" class="form-control" @bind="ExpectedDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; box-sizing: border-box;" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Note / Remarks</label>
+                <div style="margin-top: 8px;">
+                    <textarea class="form-control" @bind="Note" rows="3" placeholder="Enter optional notes for the supplier or receiver..." style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; resize: vertical;"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Summary -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 195px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Order Summary</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Status:</span>
+                    <span style="font-weight: 600; color: #94a3b8;">Draft</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Total Line Items:</span>
+                    <span style="font-weight: 600; color: var(--text-main);">@items.Count</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Total Value:</span>
+                    <span style="font-weight: 700; color: var(--accent);">
+                        $@TotalValue.ToString("N2")
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Section -->
+    <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-main);">Purchase Order Items</h3>
+            <button type="button" class="btn btn-sm" @onclick="AddItem" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Item
+            </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr>
+                        <th style="width: 45%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product (SKU)</th>
+                        <th style="width: 20%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Ordered Qty</th>
+                        <th style="width: 20%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Unit Price ($)</th>
+                        <th style="width: 20%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Total ($)</th>
+                        <th style="width: 10%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!items.Any())
+                    {
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted); border-bottom: 1px solid var(--card-border);">
+                                No items added yet. Click "Add Item" to start drafting.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @for (int i = 0; i < items.Count; i++)
+                        {
+                            var index = i;
+                            var item = items[index];
+                            <tr>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <select class="form-control" @bind="item.ProductId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%;">
+                                        <option value="">-- Select Product --</option>
+                                        @if (products != null)
+                                        {
+                                            foreach (var p in products)
+                                            {
+                                                <option value="@p.Id">@p.Code - @p.Name</option>
+                                            }
+                                        }
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                    <input type="number" step="any" min="0.0001" class="form-control" @bind="item.OrderedQty" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; text-align: right; width: 120px; display: inline-block;" />
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                    <input type="number" step="any" min="0" class="form-control" @bind="item.UnitPrice" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; text-align: right; width: 120px; display: inline-block;" />
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; font-weight: 600; color: var(--text-main);">
+                                    $@item.LineTotal.ToString("N2")
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                    <button type="button" class="btn btn-sm btn-icon" @onclick="() => RemoveItem(index)" title="Remove Item" style="padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--danger); background: rgba(239, 68, 68, 0.05); cursor: pointer;">
+                                        <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"/>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Form Footer Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn" @onclick="Cancel" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+            Cancel
+        </button>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn" @onclick="SaveAsDraft" disabled="@(!items.Any())" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: @(!items.Any() ? "not-allowed" : "pointer");">
+                Save Draft
+            </button>
+            <button type="button" class="btn btn-primary" @onclick="SaveAndConfirm" disabled="@(!items.Any())" style="padding: 12px 28px; border-radius: 8px; font-weight: 600; cursor: @(!items.Any() ? "not-allowed" : "pointer");">
+                Save & Confirm Order
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsEditMode => Id.HasValue;
+    private bool loading = true;
+    private string? errorMessage;
+    private string? poNumber;
+
+    private Guid? SupplierIdString;
+    private Guid SupplierId
+    {
+        get => SupplierIdString ?? Guid.Empty;
+        set => SupplierIdString = value == Guid.Empty ? null : value;
+    }
+
+    private DateTime? ExpectedDate;
+    private string? Note;
+
+    private List<PurchaseOrderItemFormModel> items = new();
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Supplier>? suppliers;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Product>? products;
+
+    private decimal TotalValue => items.Sum(i => i.LineTotal);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMasterData();
+        
+        if (IsEditMode)
+        {
+            await LoadPurchaseOrder();
+        }
+        else
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadMasterData()
+    {
+        // Load suppliers
+        suppliers = await SupplierRepository.FindAsync(s => s.IsActive);
+        
+        // Load products
+        products = await ProductRepository.FindAsync(p => p.IsActive);
+    }
+
+    private async Task LoadPurchaseOrder()
+    {
+        var result = await Mediator.Send(new GetPurchaseOrderByIdQuery(Id!.Value));
+        if (result.IsSuccess)
+        {
+            var po = result.Value;
+            if (po.Status != "Draft")
+            {
+                // Non-draft cannot be edited
+                Navigation.NavigateTo($"/inbound/purchase-orders/{po.Id}");
+                return;
+            }
+
+            poNumber = po.PONumber;
+            SupplierId = po.SupplierId;
+            ExpectedDate = po.ExpectedDate;
+            Note = po.Note;
+
+            items = po.Items.Select(poi => new PurchaseOrderItemFormModel
+            {
+                ProductId = poi.ProductId,
+                OrderedQty = poi.OrderedQty,
+                UnitPrice = poi.UnitPrice
+            }).ToList();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+        loading = false;
+    }
+
+    private void AddItem()
+    {
+        items.Add(new PurchaseOrderItemFormModel());
+    }
+
+    private void RemoveItem(int index)
+    {
+        items.RemoveAt(index);
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/inbound/purchase-orders");
+    }
+
+    private async Task<bool> SaveChanges()
+    {
+        errorMessage = null;
+
+        if (SupplierId == Guid.Empty)
+        {
+            errorMessage = "Please select a supplier.";
+            return false;
+        }
+
+        if (!items.Any())
+        {
+            errorMessage = "At least one item is required.";
+            return false;
+        }
+
+        if (items.Any(i => i.ProductId == Guid.Empty))
+        {
+            errorMessage = "All line items must have a product selected.";
+            return false;
+        }
+
+        if (items.Any(i => i.OrderedQty <= 0))
+        {
+            errorMessage = "All line items must have a quantity greater than 0.";
+            return false;
+        }
+
+        // Check for duplicates
+        var duplicates = items.GroupBy(i => i.ProductId).Any(g => g.Count() > 1);
+        if (duplicates)
+        {
+            errorMessage = "Duplicate products detected. Each product must be unique within the PO.";
+            return false;
+        }
+
+        var itemInputs = items.Select(i => new CreatePurchaseOrderItemInput(i.ProductId, i.OrderedQty, i.UnitPrice)).ToList();
+
+        if (IsEditMode)
+        {
+            var result = await Mediator.Send(new UpdatePurchaseOrderCommand(Id!.Value, SupplierId, ExpectedDate, Note, itemInputs));
+            if (!result.IsSuccess)
+            {
+                errorMessage = result.Error;
+                return false;
+            }
+        }
+        else
+        {
+            var result = await Mediator.Send(new CreatePurchaseOrderCommand(SupplierId, ExpectedDate, Note, itemInputs));
+            if (result.IsSuccess)
+            {
+                Id = result.Value;
+            }
+            else
+            {
+                errorMessage = result.Error;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SaveAsDraft()
+    {
+        var saved = await SaveChanges();
+        if (saved)
+        {
+            Navigation.NavigateTo("/inbound/purchase-orders");
+        }
+    }
+
+    private async Task SaveAndConfirm()
+    {
+        var saved = await SaveChanges();
+        if (saved)
+        {
+            var result = await Mediator.Send(new ConfirmPurchaseOrderCommand(Id!.Value));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/inbound/purchase-orders");
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+    }
+
+    private class PurchaseOrderItemFormModel
+    {
+        public Guid ProductId { get; set; }
+        public decimal OrderedQty { get; set; } = 1;
+        public decimal UnitPrice { get; set; } = 0;
+        public decimal LineTotal => OrderedQty * UnitPrice;
+    }
+}

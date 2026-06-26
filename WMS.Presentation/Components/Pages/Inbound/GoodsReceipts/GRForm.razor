@@ -1,0 +1,328 @@
+@page "/inbound/goods-receipts/new"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Receive Goods</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/inbound/purchase-orders" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Purchase Orders
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Receive Goods
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Log incoming counts, define warehouse bins, and enter product tracking details.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    @if (po == null)
+    {
+        <div class="alert alert-danger">
+            <span>Purchase Order was not found. Please navigate from a valid Purchase Order detail screen.</span>
+        </div>
+    }
+    else
+    {
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: General info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Linked Document Details</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">PO Reference</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 15px; color: var(--text-main);">@po.PONumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Supplier Name</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@po.SupplierName</div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Receipt Note / Remarks</label>
+                    <div style="margin-top: 8px;">
+                        <textarea class="form-control" @bind="Note" rows="2" placeholder="Describe any receipt conditions (e.g. slight damage on boxes, delivery notes...)" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; resize: vertical;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Summary -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 165px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Receipt Overview</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Status:</span>
+                        <span style="font-weight: 600; color: #94a3b8;">Draft</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Total Line Items:</span>
+                        <span style="font-weight: 600; color: var(--text-main);">@items.Count</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Product Quantities & Allocation</h3>
+            
+            <div style="overflow-x: auto;">
+                <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product (SKU)</th>
+                            <th style="width: 10%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Ordered</th>
+                            <th style="width: 10%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Received</th>
+                            <th style="width: 20%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Allocate Location</th>
+                            <th style="width: 12%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Receipt Qty</th>
+                            <th style="width: 13%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Batch No</th>
+                            <th style="width: 10%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Expiry Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in items)
+                        {
+                            <tr>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <div style="font-weight: 600; color: var(--text-main);">@item.ProductCode</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">@item.ProductName</div>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                    @item.OrderedQty.ToString("N2")
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; color: var(--text-muted);">
+                                    @item.PreviouslyReceivedQty.ToString("N2")
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <select class="form-control" @bind="item.LocationId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 13px; outline: none; width: 100%; cursor: pointer;">
+                                        <option value="">-- Select Location --</option>
+                                        @if (locations != null)
+                                        {
+                                            foreach (var loc in locations)
+                                            {
+                                                <option value="@loc.Id">@loc.Barcode</option>
+                                            }
+                                        }
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                    <input type="number" step="any" min="0" max="@item.RemainingQty" class="form-control" @bind="item.ReceivedQty" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 12px; font-size: 13px; outline: none; text-align: right; width: 80px; display: inline-block;" />
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <input type="text" class="form-control" @bind="item.BatchNo" placeholder="Batch/Lot" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 12px; font-size: 13px; outline: none; width: 100%; box-sizing: border-box;" />
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <input type="date" class="form-control" @bind="item.ExpiryDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 6px 12px; font-size: 13px; outline: none; width: 110px;" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button type="button" class="btn" @onclick="Cancel" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+                Cancel
+            </button>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="btn" @onclick="SaveAsDraft" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    Save Draft
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="CompleteReceipt" style="padding: 12px 28px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    Complete Receipt
+                </button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery] public Guid poId { get; set; }
+
+    private bool loading = true;
+    private string? errorMessage;
+    private WMS.Application.Features.PurchaseOrders.DTOs.PurchaseOrderDto? po;
+    private List<GoodsReceiptItemFormModel> items = new();
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Location>? locations;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (poId == Guid.Empty)
+        {
+            errorMessage = "Purchase Order ID parameter is missing.";
+            loading = false;
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        // Load PO details
+        var poResult = await Mediator.Send(new GetPurchaseOrderByIdQuery(poId));
+        if (poResult.IsSuccess)
+        {
+            po = poResult.Value;
+            if (po.Status != "Confirmed" && po.Status != "PartialReceived")
+            {
+                errorMessage = $"Cannot receive goods against a PO with status '{po.Status}'. Only Confirmed or PartialReceived POs can be received.";
+                loading = false;
+                return;
+            }
+
+            // Map PO lines to receipt lines (filtering out lines already fully received)
+            items = po.Items
+                .Where(poi => poi.ReceivedQty < poi.OrderedQty)
+                .Select(poi => new GoodsReceiptItemFormModel
+                {
+                    ProductId = poi.ProductId,
+                    ProductCode = poi.ProductCode,
+                    ProductName = poi.ProductName,
+                    OrderedQty = poi.OrderedQty,
+                    PreviouslyReceivedQty = poi.ReceivedQty,
+                    ReceivedQty = poi.OrderedQty - poi.ReceivedQty // Default to remaining
+                }).ToList();
+
+            if (!items.Any())
+            {
+                errorMessage = "All items in this Purchase Order have already been fully received.";
+                loading = false;
+                return;
+            }
+
+            // Load active locations
+            locations = await LocationRepository.FindAsync(l => l.IsActive);
+        }
+        else
+        {
+            errorMessage = poResult.Error;
+        }
+
+        loading = false;
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/inbound/purchase-orders/{poId}");
+    }
+
+    private async Task<Guid?> SaveReceipt()
+    {
+        errorMessage = null;
+
+        if (items.Any(i => i.LocationId == Guid.Empty))
+        {
+            errorMessage = "Please allocate a warehouse storage location for all receipt lines.";
+            return null;
+        }
+
+        if (items.Any(i => i.ReceivedQty <= 0))
+        {
+            errorMessage = "All received quantities must be greater than 0.";
+            return null;
+        }
+
+        // Validate receipt qty doesn't exceed remaining
+        if (items.Any(i => i.ReceivedQty > i.RemainingQty))
+        {
+            errorMessage = "Received quantity cannot exceed the remaining ordered quantity.";
+            return null;
+        }
+
+        var itemInputs = items.Select(i => new CreateGoodsReceiptItemInput(
+            i.ProductId, 
+            i.LocationId, 
+            i.ReceivedQty, 
+            i.BatchNo, 
+            i.ExpiryDate)).ToList();
+
+        var result = await Mediator.Send(new CreateGoodsReceiptCommand(poId, Note, itemInputs));
+        if (result.IsSuccess)
+        {
+            return result.Value;
+        }
+        else
+        {
+            errorMessage = result.Error;
+            return null;
+        }
+    }
+
+    private async Task SaveAsDraft()
+    {
+        var grId = await SaveReceipt();
+        if (grId.HasValue)
+        {
+            Navigation.NavigateTo("/inbound/goods-receipts");
+        }
+    }
+
+    private async Task CompleteReceipt()
+    {
+        var grId = await SaveReceipt();
+        if (grId.HasValue)
+        {
+            var result = await Mediator.Send(new CompleteGoodsReceiptCommand(grId.Value));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/inbound/goods-receipts");
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+    }
+
+    private string? Note;
+
+    private class GoodsReceiptItemFormModel
+    {
+        public Guid ProductId { get; set; }
+        public string ProductCode { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public decimal OrderedQty { get; set; }
+        public decimal PreviouslyReceivedQty { get; set; }
+        public decimal RemainingQty => OrderedQty - PreviouslyReceivedQty;
+        public Guid LocationId { get; set; }
+        public decimal ReceivedQty { get; set; }
+        public string? BatchNo { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+    }
+}

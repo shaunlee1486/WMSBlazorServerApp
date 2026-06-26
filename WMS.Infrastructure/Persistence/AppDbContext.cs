@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using WMS.Application.Common.Interfaces;
 using WMS.Domain.Entities.Identity;
+using WMS.Domain.Entities.Inbound;
 using WMS.Domain.Entities.Inventory;
 using WMS.Domain.Entities.MasterData;
 using WMS.Domain.Entities.Reporting;
@@ -51,6 +52,12 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
     public DbSet<StockAdjustmentItem> StockAdjustmentItems => Set<StockAdjustmentItem>();
 
+    // Inbound
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
+    public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+    public DbSet<GoodsReceiptItem> GoodsReceiptItems => Set<GoodsReceiptItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -77,6 +84,8 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
         builder.Entity<Unit>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<Product>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<StockAdjustment>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<PurchaseOrder>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<GoodsReceipt>().HasQueryFilter(x => !x.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
