@@ -1,0 +1,206 @@
+@page "/inventory"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>WMS - Stock Overview</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Stock Overview</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Real-time stock ledger, physical locations, and available inventory levels.</p>
+    </div>
+    <div style="display: flex; gap: 12px;">
+        <a href="/inventory/movements" class="btn" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(30, 41, 59, 0.4); font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Stock Movements
+        </a>
+        <a href="/inventory/adjustments" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Stock Adjustments
+        </a>
+    </div>
+</div>
+
+<!-- Search & Filtering Cards -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+    <div class="input-group" style="flex: 1; min-width: 250px; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+        <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" class="form-control" placeholder="Search by SKU, Product Name, Location..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none; width: 100%;" />
+    </div>
+
+    <!-- Warehouse Filter -->
+    <div style="display: flex; flex-direction: column; min-width: 200px;">
+        <select class="form-control" @bind="SelectedWarehouseId" @bind:after="OnWarehouseChanged" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; cursor: pointer;">
+            <option value="">All Warehouses</option>
+            @if (warehouses != null)
+            {
+                foreach (var wh in warehouses)
+                {
+                    <option value="@wh.Id">@wh.Name (@wh.Code)</option>
+                }
+            }
+        </select>
+    </div>
+
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 10px 20px; border-radius: 8px;">
+        Filter
+    </button>
+</div>
+
+<!-- Main Table -->
+@if (stockItems == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="WMS.Application.Features.Stock.DTOs.StockOverviewDto"
+               Items="stockItems"
+               ColSpan="7"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th @onclick='() => Sort("ProductCode")' style="cursor: pointer; user-select: none;">
+                Product Code @GetSortIcon("ProductCode")
+            </th>
+            <th @onclick='() => Sort("ProductName")' style="cursor: pointer; user-select: none;">
+                Product Name @GetSortIcon("ProductName")
+            </th>
+            <th>Warehouse</th>
+            <th @onclick='() => Sort("LocationBarcode")' style="cursor: pointer; user-select: none;">
+                Location Barcode @GetSortIcon("LocationBarcode")
+            </th>
+            <th @onclick='() => Sort("Quantity")' style="cursor: pointer; user-select: none; text-align: right;">
+                On-Hand @GetSortIcon("Quantity")
+            </th>
+            <th @onclick='() => Sort("ReservedQuantity")' style="cursor: pointer; user-select: none; text-align: right;">
+                Reserved @GetSortIcon("ReservedQuantity")
+            </th>
+            <th @onclick='() => Sort("AvailableQuantity")' style="cursor: pointer; user-select: none; text-align: right;">
+                Available @GetSortIcon("AvailableQuantity")
+            </th>
+        </HeaderTemplate>
+        <RowTemplate Context="stock">
+            <td style="font-weight: 600; color: var(--text-main);">@stock.ProductCode</td>
+            <td>@stock.ProductName</td>
+            <td style="color: var(--text-muted);">@stock.WarehouseName</td>
+            <td style="font-family: monospace; font-size: 13px;">@stock.LocationBarcode</td>
+            <td style="text-align: right; font-weight: 600;">@stock.Quantity.ToString("N2")</td>
+            <td style="text-align: right; color: var(--text-muted);">@stock.ReservedQuantity.ToString("N2")</td>
+            <td style="text-align: right; color: @(stock.AvailableQuantity > 0 ? "var(--success)" : "var(--text-muted)"); font-weight: 600;">
+                @stock.AvailableQuantity.ToString("N2")
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private IReadOnlyList<WMS.Application.Features.Stock.DTOs.StockOverviewDto>? stockItems;
+    private IReadOnlyList<WMS.Application.Features.Warehouses.DTOs.WarehouseDto>? warehouses;
+    private string SearchTerm = string.Empty;
+    private string? SelectedWarehouseIdString;
+    
+    private Guid? SelectedWarehouseId
+    {
+        get => string.IsNullOrEmpty(SelectedWarehouseIdString) ? null : Guid.Parse(SelectedWarehouseIdString);
+        set => SelectedWarehouseIdString = value?.ToString();
+    }
+
+    private string SortColumn = "ProductCode";
+    private string SortOrder = "asc";
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWarehouses();
+        await LoadData();
+    }
+
+    private async Task LoadWarehouses()
+    {
+        var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Queries.GetWarehousesQuery(
+            SearchTerm: null, SortColumn: "Name", SortOrder: "asc", Page: 1, PageSize: 100));
+        
+        if (result.IsSuccess)
+        {
+            warehouses = result.Value.Items.Where(w => w.IsActive).ToList();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        var result = await Mediator.Send(new GetStockOverviewQuery(
+            SearchTerm, SelectedWarehouseId, SortColumn, SortOrder, Page, PageSize));
+        
+        if (result.IsSuccess)
+        {
+            stockItems = result.Value.Items;
+            TotalCount = result.Value.TotalCount;
+        }
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnWarehouseChanged()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+
+    private async Task Sort(string column)
+    {
+        if (SortColumn == column)
+        {
+            SortOrder = SortOrder == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            SortColumn = column;
+            SortOrder = "asc";
+        }
+        Page = 1;
+        await LoadData();
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (SortColumn != column) return string.Empty;
+        return SortOrder == "asc" ? "▲" : "▼";
+    }
+}

@@ -1,0 +1,451 @@
+@page "/inventory/adjustments/new"
+@page "/inventory/adjustments/{Id:guid}/edit"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IStockRepository StockRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository
+@inject IStockAdjustmentRepository StockAdjustmentRepository
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - @(IsEditMode ? $"Edit Adjustment {adjustmentNumber}" : "New Adjustment")</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/inventory/adjustments" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Adjustments
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        @(IsEditMode ? $"Edit Adjustment {adjustmentNumber}" : "New Stock Adjustment")
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Create and edit physical stock counts to align system quantities with actual stock.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+        <!-- Left Panel: Adjustment Info -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">General Details</h3>
+            
+            <div class="form-group">
+                <label>Warehouse</label>
+                <div style="margin-top: 8px;">
+                    <select class="form-control" @bind="WarehouseId" @bind:after="OnWarehouseChanged" disabled="@(IsEditMode || items.Any())" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; cursor: @(IsEditMode || items.Any() ? "not-allowed" : "pointer");">
+                        <option value="">-- Select Warehouse --</option>
+                        @if (warehouses != null)
+                        {
+                            foreach (var wh in warehouses)
+                            {
+                                <option value="@wh.Id">@wh.Name (@wh.Code)</option>
+                            }
+                        }
+                    </select>
+                </div>
+                @if (items.Any())
+                {
+                    <small style="color: var(--text-muted); margin-top: 4px; display: block;">Warehouse cannot be changed once items are added.</small>
+                }
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Reason / Remarks</label>
+                <div style="margin-top: 8px;">
+                    <textarea class="form-control" @bind="Reason" rows="3" placeholder="Explain why this stock adjustment is being made (e.g. Annual physical inventory check, broken goods, etc.)" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; resize: vertical;"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Info Summary -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 195px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Status Summary</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Status:</span>
+                    <span style="font-weight: 600; color: #94a3b8;">Draft</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Number of SKU items:</span>
+                    <span style="font-weight: 600; color: var(--text-main);">@items.Count</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Total Delta Qty:</span>
+                    <span style="font-weight: 600; color: @(TotalDelta >= 0 ? "var(--success)" : "var(--danger)");">
+                        @(TotalDelta >= 0 ? "+" : "")@TotalDelta.ToString("N2")
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Grid Section -->
+    <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-main);">Adjustment Line Items</h3>
+            <button type="button" class="btn btn-sm" @onclick="AddItem" disabled="@(WarehouseId == Guid.Empty)" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: @(WarehouseId == Guid.Empty ? "not-allowed" : "pointer");">
+                <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Item
+            </button>
+        </div>
+
+        @if (WarehouseId == Guid.Empty)
+        {
+            <div style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                Please select a warehouse above to add adjustment line items.
+            </div>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+                <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product (SKU)</th>
+                            <th style="width: 25%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Location</th>
+                            <th style="width: 15%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">System Qty</th>
+                            <th style="width: 15%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Actual Qty</th>
+                            <th style="width: 15%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Difference</th>
+                            <th style="width: 10%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!items.Any())
+                        {
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted); border-bottom: 1px solid var(--card-border);">
+                                    No items added yet. Click "Add Item" to start.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @for (int i = 0; i < items.Count; i++)
+                            {
+                                var index = i;
+                                var item = items[index];
+                                <tr>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                        <select class="form-control" @bind="item.ProductId" @bind:after="() => OnItemChanged(item)" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%;">
+                                            <option value="">-- Select Product --</option>
+                                            @if (products != null)
+                                            {
+                                                foreach (var p in products)
+                                                {
+                                                    <option value="@p.Id">@p.Code - @p.Name</option>
+                                                }
+                                            }
+                                        </select>
+                                    </td>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                        <select class="form-control" @bind="item.LocationId" @bind:after="() => OnItemChanged(item)" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%;">
+                                            <option value="">-- Select Location --</option>
+                                            @if (locations != null)
+                                            {
+                                                foreach (var loc in locations)
+                                                {
+                                                    <option value="@loc.Id">@loc.Barcode</option>
+                                                }
+                                            }
+                                        </select>
+                                    </td>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; font-weight: 500; color: var(--text-muted);">
+                                        @item.SystemQty.ToString("N2")
+                                    </td>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                        <input type="number" step="any" class="form-control" @bind="item.ActualQty" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; text-align: right; width: 100px; display: inline-block;" />
+                                    </td>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; font-weight: 600; color: @(item.Difference > 0 ? "var(--success)" : item.Difference < 0 ? "var(--danger)" : "var(--text-muted)")">
+                                        @(item.Difference > 0 ? "+" : "")@item.Difference.ToString("N2")
+                                    </td>
+                                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                        <button type="button" class="btn btn-sm btn-icon" @onclick="() => RemoveItem(index)" title="Remove Item" style="padding: 6px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--danger); background: rgba(239, 68, 68, 0.05); cursor: pointer;">
+                                            <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="3 6 5 6 21 6"/>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <!-- Form Footer Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn" @onclick="Cancel" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+            Cancel
+        </button>
+        <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn" @onclick="SaveAsDraft" disabled="@(WarehouseId == Guid.Empty || !items.Any())" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: @(WarehouseId == Guid.Empty || !items.Any() ? "not-allowed" : "pointer");">
+                Save Draft
+            </button>
+            <button type="button" class="btn btn-primary" @onclick="SaveAndSubmit" disabled="@(WarehouseId == Guid.Empty || !items.Any())" style="padding: 12px 28px; border-radius: 8px; font-weight: 600; cursor: @(WarehouseId == Guid.Empty || !items.Any() ? "not-allowed" : "pointer");">
+                Submit for Approval
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsEditMode => Id.HasValue;
+    private bool loading = true;
+    private string? errorMessage;
+    private string? adjustmentNumber;
+    
+    private Guid? WarehouseIdString;
+    private Guid WarehouseId
+    {
+        get => WarehouseIdString ?? Guid.Empty;
+        set => WarehouseIdString = value == Guid.Empty ? null : value;
+    }
+
+    private string? Reason;
+
+    private List<AdjustmentItemFormModel> items = new();
+    private IReadOnlyList<WMS.Application.Features.Warehouses.DTOs.WarehouseDto>? warehouses;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Product>? products;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Location>? locations;
+
+    private decimal TotalDelta => items.Sum(i => i.Difference);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMasterData();
+        
+        if (IsEditMode)
+        {
+            await LoadAdjustment();
+        }
+        else
+        {
+            loading = false;
+        }
+    }
+
+    private async Task LoadMasterData()
+    {
+        // Load warehouses
+        var whResult = await Mediator.Send(new WMS.Application.Features.Warehouses.Queries.GetWarehousesQuery(
+            SearchTerm: null, SortColumn: "Name", SortOrder: "asc", Page: 1, PageSize: 100));
+        
+        if (whResult.IsSuccess)
+        {
+            warehouses = whResult.Value.Items.Where(w => w.IsActive).ToList();
+        }
+
+        // Load active products
+        products = await ProductRepository.FindAsync(p => p.IsActive);
+    }
+
+    private async Task LoadAdjustment()
+    {
+        var result = await Mediator.Send(new GetStockAdjustmentByIdQuery(Id!.Value));
+        if (result.IsSuccess)
+        {
+            var sa = result.Value;
+            if (sa.Status != "Draft")
+            {
+                // Cannot edit non-drafts. Redirect to details
+                Navigation.NavigateTo($"/inventory/adjustments/{sa.Id}");
+                return;
+            }
+
+            adjustmentNumber = sa.AdjNumber;
+            WarehouseId = sa.WarehouseId;
+            Reason = sa.Reason;
+            
+            // Load locations for the selected warehouse
+            await LoadLocations(sa.WarehouseId);
+
+            items = sa.Items.Select(sai => new AdjustmentItemFormModel
+            {
+                ProductId = sai.ProductId,
+                LocationId = sai.LocationId,
+                SystemQty = sai.SystemQty,
+                ActualQty = sai.ActualQty
+            }).ToList();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+        loading = false;
+    }
+
+    private async Task OnWarehouseChanged()
+    {
+        items.Clear();
+        if (WarehouseId != Guid.Empty)
+        {
+            await LoadLocations(WarehouseId);
+        }
+        else
+        {
+            locations = null;
+        }
+    }
+
+    private async Task LoadLocations(Guid whId)
+    {
+        locations = await LocationRepository.FindAsync(l => l.IsActive && l.Zone.WarehouseId == whId);
+    }
+
+    private void AddItem()
+    {
+        items.Add(new AdjustmentItemFormModel());
+    }
+
+    private void RemoveItem(int index)
+    {
+        items.RemoveAt(index);
+    }
+
+    private async Task OnItemChanged(AdjustmentItemFormModel item)
+    {
+        if (item.ProductId != Guid.Empty && item.LocationId != Guid.Empty)
+        {
+            var stocks = await StockRepository.FindAsync(s => s.ProductId == item.ProductId && s.LocationId == item.LocationId);
+            item.SystemQty = stocks.FirstOrDefault()?.Quantity ?? 0m;
+        }
+        else
+        {
+            item.SystemQty = 0m;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/inventory/adjustments");
+    }
+
+    private async Task<bool> SaveChanges()
+    {
+        errorMessage = null;
+
+        // Perform validations
+        if (WarehouseId == Guid.Empty)
+        {
+            errorMessage = "Please select a warehouse.";
+            return false;
+        }
+
+        if (!items.Any())
+        {
+            errorMessage = "At least one adjustment item is required.";
+            return false;
+        }
+
+        if (items.Any(i => i.ProductId == Guid.Empty || i.LocationId == Guid.Empty))
+        {
+            errorMessage = "All line items must have a product and location selected.";
+            return false;
+        }
+
+        // Check for duplicates
+        var duplicates = items.GroupBy(i => new { i.ProductId, i.LocationId }).Any(g => g.Count() > 1);
+        if (duplicates)
+        {
+            errorMessage = "Duplicate items detected. Each product and location combination must be unique.";
+            return false;
+        }
+
+        var itemInputs = items.Select(i => new CreateStockAdjustmentItemInput(i.ProductId, i.LocationId, i.ActualQty)).ToList();
+
+        if (IsEditMode)
+        {
+            var result = await Mediator.Send(new UpdateStockAdjustmentCommand(Id!.Value, Reason, itemInputs));
+            if (!result.IsSuccess)
+            {
+                errorMessage = result.Error;
+                return false;
+            }
+        }
+        else
+        {
+            var result = await Mediator.Send(new CreateStockAdjustmentCommand(WarehouseId, Reason, itemInputs));
+            if (result.IsSuccess)
+            {
+                Id = result.Value; // Store generated ID
+            }
+            else
+            {
+                errorMessage = result.Error;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SaveAsDraft()
+    {
+        var saved = await SaveChanges();
+        if (saved)
+        {
+            Navigation.NavigateTo("/inventory/adjustments");
+        }
+    }
+
+    private async Task SaveAndSubmit()
+    {
+        var saved = await SaveChanges();
+        if (saved)
+        {
+            var result = await Mediator.Send(new SubmitStockAdjustmentCommand(Id!.Value));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo("/inventory/adjustments");
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+    }
+
+    private class AdjustmentItemFormModel
+    {
+        public Guid ProductId { get; set; }
+        public Guid LocationId { get; set; }
+        public decimal SystemQty { get; set; }
+        public decimal ActualQty { get; set; }
+        public decimal Difference => ActualQty - SystemQty;
+    }
+}

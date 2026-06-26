@@ -1,0 +1,352 @@
+@page "/inventory/adjustments/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject WMS.Application.Common.Interfaces.ICurrentUserService CurrentUserService
+
+<PageTitle>WMS - Stock Adjustment Details</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/inventory/adjustments" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Adjustments List
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Stock Adjustment Details
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Review details, historical logs, and process approvals for physical counts.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (sa == null)
+    {
+        <div class="alert alert-danger">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Stock adjustment not found.</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(feedbackMessage))
+        {
+            <div class="alert @(isFeedbackError ? "alert-danger" : "alert-success")" style="@(isFeedbackError ? "" : "background-color: rgba(16, 185, 129, 0.15) !important; border: 1px solid rgba(16, 185, 129, 0.2) !important; color: #a7f3d0 !important;")">
+                <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    @if (isFeedbackError)
+                    {
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    }
+                    else
+                    {
+                        <polyline points="20 6 9 17 4 12"/>
+                    }
+                </svg>
+                <span>@feedbackMessage</span>
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: Detail Info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">General Details</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Adjustment Number</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 16px; font-weight: 700; color: var(--text-main);">@sa.AdjNumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Warehouse</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@sa.WarehouseName</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Adjustment Date</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@sa.AdjustmentDate.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Created By (ID)</span>
+                        <div style="margin-top: 6px; font-size: 14px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@sa.CreatedBy</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Reason / Remarks</span>
+                    <div style="margin-top: 8px; font-size: 15px; color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--card-border); line-height: 1.5;">
+                        @(sa.Reason ?? "No reason provided.")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Status Card -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Workflows</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">Current Status:</span>
+                        <span class="badge" style="background-color: @GetStatusBgColor(sa.Status); color: @GetStatusTextColor(sa.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(sa.Status)">
+                            @sa.Status
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Total Delta Qty:</span>
+                        <span style="font-weight: 700; color: @(TotalDelta >= 0 ? "var(--success)" : "var(--danger)");">
+                            @(TotalDelta >= 0 ? "+" : "")@TotalDelta.ToString("N2")
+                        </span>
+                    </div>
+                    @if (sa.ApprovedBy.HasValue)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--card-border); padding-top: 12px;">
+                            <span style="color: var(--text-muted); font-size: 12px;">Authorized By (ID):</span>
+                            <span style="font-family: monospace; font-size: 13px; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@sa.ApprovedBy</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Approval Buttons (Shown only to Managers/Admins when PendingApproval) -->
+                @if (sa.Status == "PendingApproval")
+                {
+                    @if (canApprove)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <button class="btn btn-primary" @onclick="ApproveAdjustment" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Approve & Commit
+                            </button>
+                            <button class="btn" @onclick="OpenRejectionPrompt" style="padding: 12px; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); font-weight: 600; font-size: 15px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                                Reject Adjustment
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 12px; text-align: center; color: #f59e0b; font-size: 13px;">
+                            Requires <strong>WarehouseManager</strong> or <strong>Admin</strong> authorization to approve/reject.
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Items Grid Section -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Discrepancy Ledger Items</h3>
+            
+            <DataTable TItem="WMS.Application.Features.StockAdjustment.DTOs.StockAdjustmentItemDto"
+                       Items="sa.Items"
+                       ColSpan="5"
+                       Page="1"
+                       PageSize="99999"
+                       TotalCount="sa.Items.Count"
+                       OnPageChanged="_ => Task.CompletedTask">
+                <HeaderTemplate>
+                    <th>Product Code</th>
+                    <th>Product Name</th>
+                    <th>Location Barcode</th>
+                    <th style="text-align: right;">System Qty</th>
+                    <th style="text-align: right;">Actual Qty</th>
+                    <th style="text-align: right;">Difference</th>
+                </HeaderTemplate>
+                <RowTemplate Context="item">
+                    <td style="font-weight: 600; color: var(--text-main);">@item.ProductCode</td>
+                    <td>@item.ProductName</td>
+                    <td style="font-family: monospace; font-size: 13px; color: var(--text-muted);">@item.LocationBarcode</td>
+                    <td style="text-align: right; color: var(--text-muted);">@item.SystemQty.ToString("N2")</td>
+                    <td style="text-align: right; font-weight: 600;">@item.ActualQty.ToString("N2")</td>
+                    <td style="text-align: right; font-weight: 700; color: @(item.Difference > 0 ? "var(--success)" : item.Difference < 0 ? "var(--danger)" : "var(--text-muted)")">
+                        @(item.Difference > 0 ? "+" : "")@item.Difference.ToString("N2")
+                    </td>
+                </RowTemplate>
+            </DataTable>
+        </div>
+    }
+}
+
+<!-- Rejection Modal -->
+@if (isRejectionPromptOpen)
+{
+    <div class="wms-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div class="wms-modal-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; width: 100%; max-width: 460px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+            <div class="wms-modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px;">
+                <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--text-main);">Reject Stock Adjustment</h3>
+                <button class="close-btn" @onclick="CloseRejectionPrompt" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;">🗙</button>
+            </div>
+            
+            <div class="wms-modal-body" style="margin-bottom: 24px;">
+                <div class="form-group">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Rejection Reason</label>
+                    <div style="margin-top: 8px;">
+                        <textarea class="form-control" @bind="rejectionReason" rows="3" placeholder="Please specify why this adjustment is being rejected..." style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; width: 100%; box-sizing: border-box; outline: none; resize: vertical;" required></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="wms-modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--card-border); padding-top: 16px;">
+                <button type="button" class="btn" @onclick="CloseRejectionPrompt" style="border: 1px solid var(--card-border); color: var(--text-muted); padding: 8px 16px; border-radius: 6px;">Cancel</button>
+                <button type="button" class="btn" @onclick="RejectAdjustment" style="padding: 8px 20px; border-radius: 6px; font-weight: 600; background-color: var(--danger); border: none; color: #fff;">Confirm Reject</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .badge {
+        display: inline-block;
+    }
+</style>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private WMS.Application.Features.StockAdjustment.DTOs.StockAdjustmentDto? sa;
+    private bool canApprove = false;
+    private string? feedbackMessage;
+    private bool isFeedbackError = false;
+
+    // Rejection state
+    private bool isRejectionPromptOpen = false;
+    private string rejectionReason = string.Empty;
+
+    private decimal TotalDelta => sa?.Items?.Sum(i => i.Difference) ?? 0m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Enforce user roles check
+        canApprove = CurrentUserService.Roles.Any(role => 
+            role.Equals("WarehouseManager", StringComparison.OrdinalIgnoreCase) || 
+            role.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        var result = await Mediator.Send(new GetStockAdjustmentByIdQuery(Id));
+        if (result.IsSuccess)
+        {
+            sa = result.Value;
+        }
+        else
+        {
+            feedbackMessage = result.Error;
+            isFeedbackError = true;
+        }
+        loading = false;
+    }
+
+    private async Task ApproveAdjustment()
+    {
+        feedbackMessage = null;
+        var result = await Mediator.Send(new ApproveStockAdjustmentCommand(Id));
+        if (result.IsSuccess)
+        {
+            feedbackMessage = "Stock adjustment successfully approved and committed to inventory levels.";
+            isFeedbackError = false;
+            await LoadData();
+        }
+        else
+        {
+            feedbackMessage = result.Error;
+            isFeedbackError = true;
+        }
+    }
+
+    private void OpenRejectionPrompt()
+    {
+        rejectionReason = string.Empty;
+        isRejectionPromptOpen = true;
+    }
+
+    private void CloseRejectionPrompt()
+    {
+        isRejectionPromptOpen = false;
+    }
+
+    private async Task RejectAdjustment()
+    {
+        if (string.IsNullOrWhiteSpace(rejectionReason))
+        {
+            return;
+        }
+
+        isRejectionPromptOpen = false;
+        feedbackMessage = null;
+        var result = await Mediator.Send(new RejectStockAdjustmentCommand(Id, rejectionReason));
+        if (result.IsSuccess)
+        {
+            feedbackMessage = "Stock adjustment successfully rejected.";
+            isFeedbackError = false;
+            await LoadData();
+        }
+        else
+        {
+            feedbackMessage = result.Error;
+            isFeedbackError = true;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",
+            "pendingapproval" => "rgba(245, 158, 11, 0.1)",
+            "approved" => "rgba(16, 185, 129, 0.1)",
+            "rejected" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "pendingapproval" => "#fbbf24",
+            "approved" => "#34d399",
+            "rejected" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "pendingapproval" => "rgba(245, 158, 11, 0.2)",
+            "approved" => "rgba(16, 185, 129, 0.2)",
+            "rejected" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

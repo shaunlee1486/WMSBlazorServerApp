@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WMS.Application.Common.Interfaces;
 using WMS.Domain.Entities.Identity;
 using WMS.Domain.Interfaces;
+using WMS.Domain.Interfaces.Repositories;
 using WMS.Infrastructure.Identity;
 using WMS.Infrastructure.Persistence;
 using WMS.Infrastructure.Persistence.Repositories;
@@ -25,6 +26,9 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped(typeof(IRepository<>), typeof(EFRepository<>));
+        services.AddScoped<IStockRepository, EFStockRepository>();
+        services.AddScoped<IStockMovementRepository, EFStockMovementRepository>();
+        services.AddScoped<IStockAdjustmentRepository, EFStockAdjustmentRepository>();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorageService, FileStorageService>();

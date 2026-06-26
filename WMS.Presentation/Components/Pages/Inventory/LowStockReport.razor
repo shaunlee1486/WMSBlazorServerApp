@@ -1,0 +1,109 @@
+@page "/inventory/low-stock"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IJSRuntime JS
+@using System.Text
+
+<PageTitle>WMS - Low Stock Alert Report</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end;">
+    <div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <a href="/inventory" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                Back to Stock Overview
+            </a>
+        </div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Low Stock Report</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Products below reorder threshold requiring replenishment action.</p>
+    </div>
+    
+    <button class="btn btn-primary" @onclick="ExportToCsv" disabled="@(lowStockItems == null || !lowStockItems.Any())" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-glow)); border: none; box-shadow: 0 4px 12px var(--accent-glow);">
+        <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export CSV
+    </button>
+</div>
+
+<!-- Main Table -->
+@if (lowStockItems == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="WMS.Application.Features.Stock.DTOs.LowStockDto"
+               Items="lowStockItems"
+               ColSpan="6"
+               Page="1"
+               PageSize="999999"
+               TotalCount="lowStockItems.Count"
+               OnPageChanged="_ => Task.CompletedTask">
+        <HeaderTemplate>
+            <th>Product Code</th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th style="text-align: right;">Current Stock</th>
+            <th style="text-align: right;">Min Stock</th>
+            <th style="text-align: right;">Reorder Point</th>
+        </HeaderTemplate>
+        <RowTemplate Context="item">
+            <td style="font-weight: 600; color: var(--text-main);">@item.ProductCode</td>
+            <td>@item.ProductName</td>
+            <td style="color: var(--text-muted);">@item.CategoryName</td>
+            <td style="text-align: right; font-weight: 700; color: var(--danger);">
+                @item.CurrentStock.ToString("N2")
+            </td>
+            <td style="text-align: right; color: var(--text-muted);">@item.MinStock.ToString("N2")</td>
+            <td style="text-align: right; font-weight: 600; color: var(--accent);">
+                @item.ReorderPoint.ToString("N2")
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private IReadOnlyList<WMS.Application.Features.Stock.DTOs.LowStockDto>? lowStockItems;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var result = await Mediator.Send(new GetLowStockReportQuery());
+        if (result.IsSuccess)
+        {
+            lowStockItems = result.Value;
+        }
+    }
+
+    private async Task ExportToCsv()
+    {
+        if (lowStockItems == null || !lowStockItems.Any()) return;
+
+        var csv = new StringBuilder();
+        csv.AppendLine("Product Code,Product Name,Category,Current Stock,Min Stock,Reorder Point");
+        foreach (var item in lowStockItems)
+        {
+            csv.AppendLine($"\"{item.ProductCode}\",\"{item.ProductName}\",\"{item.CategoryName}\",{item.CurrentStock},{item.MinStock},{item.ReorderPoint}");
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var url = $"data:text/csv;base64,{base64}";
+        
+        await JS.InvokeVoidAsync("eval", $"const a = document.createElement('a'); a.href = '{url}'; a.download = 'low_stock_report_{DateTime.UtcNow:yyyyMMdd}.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);");
+    }
+}

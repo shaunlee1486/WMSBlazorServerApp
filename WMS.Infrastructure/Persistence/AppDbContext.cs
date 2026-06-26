@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using WMS.Application.Common.Interfaces;
 using WMS.Domain.Entities.Identity;
+using WMS.Domain.Entities.Inventory;
 using WMS.Domain.Entities.MasterData;
 using WMS.Domain.Entities.Reporting;
 using WMS.Domain.Interfaces;
@@ -44,6 +45,12 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
     // Reporting / System
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    // Inventory
+    public DbSet<Stock> Stocks => Set<Stock>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
+    public DbSet<StockAdjustmentItem> StockAdjustmentItems => Set<StockAdjustmentItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -69,6 +76,7 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
         builder.Entity<Category>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<Unit>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<Product>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<StockAdjustment>().HasQueryFilter(x => !x.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

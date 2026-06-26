@@ -1,0 +1,293 @@
+@page "/inventory/adjustments"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Stock Adjustments</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <a href="/inventory" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                Back to Stock Overview
+            </a>
+        </div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Stock Adjustments</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Manage physical stock count adjustments and workflows.</p>
+    </div>
+    
+    <a href="/inventory/adjustments/new" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+        <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Adjustment
+    </a>
+</div>
+
+<!-- Search & Filtering -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+    <div class="input-group" style="flex: 1; min-width: 250px; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+        <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" class="form-control" placeholder="Search by number, reason, warehouse..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none; width: 100%;" />
+    </div>
+
+    <!-- Warehouse Filter -->
+    <div style="display: flex; flex-direction: column; min-width: 200px;">
+        <select class="form-control" @bind="SelectedWarehouseId" @bind:after="OnWarehouseChanged" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; cursor: pointer;">
+            <option value="">All Warehouses</option>
+            @if (warehouses != null)
+            {
+                foreach (var wh in warehouses)
+                {
+                    <option value="@wh.Id">@wh.Name (@wh.Code)</option>
+                }
+            }
+        </select>
+    </div>
+
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 10px 20px; border-radius: 8px;">
+        Filter
+    </button>
+</div>
+
+<!-- Errors -->
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>@errorMessage</span>
+    </div>
+}
+
+<!-- Main Table -->
+@if (adjustments == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="WMS.Application.Features.StockAdjustment.DTOs.StockAdjustmentDto"
+               Items="adjustments"
+               ColSpan="6"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th @onclick='() => Sort("AdjNumber")' style="cursor: pointer; user-select: none;">
+                Adjustment No @GetSortIcon("AdjNumber")
+            </th>
+            <th @onclick='() => Sort("WarehouseName")' style="cursor: pointer; user-select: none;">
+                Warehouse @GetSortIcon("WarehouseName")
+            </th>
+            <th @onclick='() => Sort("AdjustmentDate")' style="cursor: pointer; user-select: none;">
+                Date @GetSortIcon("AdjustmentDate")
+            </th>
+            <th>Reason</th>
+            <th @onclick='() => Sort("Status")' style="cursor: pointer; user-select: none;">
+                Status @GetSortIcon("Status")
+            </th>
+            <th class="text-end">Actions</th>
+        </HeaderTemplate>
+        <RowTemplate Context="sa">
+            <td style="font-weight: 600; color: var(--text-main); font-family: monospace;">@sa.AdjNumber</td>
+            <td>@sa.WarehouseName</td>
+            <td style="color: var(--text-muted); font-size: 13px;">@sa.AdjustmentDate.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@(sa.Reason ?? "-")</td>
+            <td>
+                <span class="badge" style="background-color: @GetStatusBgColor(sa.Status); color: @GetStatusTextColor(sa.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(sa.Status)">
+                    @sa.Status
+                </span>
+            </td>
+            <td class="text-end">
+                <div style="display: inline-flex; gap: 8px;">
+                    @if (sa.Status == "Draft")
+                    {
+                        <a href="/inventory/adjustments/@(sa.Id)/edit" class="btn btn-sm" title="Edit Draft" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); text-decoration: none; font-size: 13px;">
+                            Edit
+                        </a>
+                        <button class="btn btn-sm" @onclick="() => SubmitForApproval(sa.Id)" title="Submit for Approval" style="padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; background: rgba(16, 185, 129, 0.1); font-size: 13px; font-weight: 600;">
+                            Submit
+                        </button>
+                    }
+                    else if (sa.Status == "PendingApproval")
+                    {
+                        <a href="/inventory/adjustments/@(sa.Id)" class="btn btn-sm btn-primary" title="Review & Approve" style="padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none;">
+                            Review
+                        </a>
+                    }
+                    else
+                    {
+                        <a href="/inventory/adjustments/@(sa.Id)" class="btn btn-sm" title="View Details" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2); text-decoration: none; font-size: 13px;">
+                            View
+                        </a>
+                    }
+                </div>
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private IReadOnlyList<WMS.Application.Features.StockAdjustment.DTOs.StockAdjustmentDto>? adjustments;
+    private IReadOnlyList<WMS.Application.Features.Warehouses.DTOs.WarehouseDto>? warehouses;
+    private string SearchTerm = string.Empty;
+    private string? SelectedWarehouseIdString;
+    private string? errorMessage;
+    
+    private Guid? SelectedWarehouseId
+    {
+        get => string.IsNullOrEmpty(SelectedWarehouseIdString) ? null : Guid.Parse(SelectedWarehouseIdString);
+        set => SelectedWarehouseIdString = value?.ToString();
+    }
+
+    private string SortColumn = "CreatedAt";
+    private string SortOrder = "desc";
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWarehouses();
+        await LoadData();
+    }
+
+    private async Task LoadWarehouses()
+    {
+        var result = await Mediator.Send(new WMS.Application.Features.Warehouses.Queries.GetWarehousesQuery(
+            SearchTerm: null, SortColumn: "Name", SortOrder: "asc", Page: 1, PageSize: 100));
+        
+        if (result.IsSuccess)
+        {
+            warehouses = result.Value.Items.Where(w => w.IsActive).ToList();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        var result = await Mediator.Send(new WMS.Application.Features.StockAdjustment.Queries.GetStockAdjustmentsQuery(
+            SearchTerm, SelectedWarehouseId, SortColumn, SortOrder, Page, PageSize));
+        
+        if (result.IsSuccess)
+        {
+            adjustments = result.Value.Items;
+            TotalCount = result.Value.TotalCount;
+        }
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnWarehouseChanged()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+
+    private async Task Sort(string column)
+    {
+        if (SortColumn == column)
+        {
+            SortOrder = SortOrder == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            SortColumn = column;
+            SortOrder = "asc";
+        }
+        Page = 1;
+        await LoadData();
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (SortColumn != column) return string.Empty;
+        return SortOrder == "asc" ? "▲" : "▼";
+    }
+
+    private async Task SubmitForApproval(Guid id)
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new WMS.Application.Features.StockAdjustment.Commands.SubmitStockAdjustmentCommand(id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",       // muted slate
+            "pendingapproval" => "rgba(245, 158, 11, 0.1)", // amber
+            "approved" => "rgba(16, 185, 129, 0.1)",      // success green
+            "rejected" => "rgba(239, 68, 68, 0.1)",        // danger red
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "pendingapproval" => "#fbbf24",
+            "approved" => "#34d399",
+            "rejected" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "pendingapproval" => "rgba(245, 158, 11, 0.2)",
+            "approved" => "rgba(16, 185, 129, 0.2)",
+            "rejected" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

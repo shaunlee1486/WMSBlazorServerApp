@@ -33,7 +33,7 @@
     </li>
 
     <li class="menu-item">
-        <NavLink class="menu-link" href="inventory">
+        <NavLink class="menu-link" href="inventory" Match="NavLinkMatch.All">
             <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <line x1="9" y1="3" x2="9" y2="21"/>
@@ -42,6 +42,36 @@
                 <line x1="3" y1="15" x2="21" y2="15"/>
             </svg>
             <span>Stock Overview</span>
+        </NavLink>
+    </li>
+
+    <li class="menu-item">
+        <NavLink class="menu-link" href="inventory/movements">
+            <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <span>Stock Movements</span>
+        </NavLink>
+    </li>
+
+    <li class="menu-item">
+        <NavLink class="menu-link" href="inventory/low-stock">
+            <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 22 22 2 22"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>Low Stock Alerts</span>
+        </NavLink>
+    </li>
+
+    <li class="menu-item">
+        <NavLink class="menu-link" href="inventory/adjustments">
+            <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <span>Stock Adjustments</span>
         </NavLink>
     </li>
 
