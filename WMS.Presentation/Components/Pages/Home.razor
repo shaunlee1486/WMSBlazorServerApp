@@ -1,0 +1,137 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>WMS Dashboard</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Dashboard</h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Real-time overview of warehouse metrics & activities</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-4" style="margin-bottom: 32px;">
+    <div class="col-md-3">
+        <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
+            <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Total Products</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--text-main);">24</div>
+            </div>
+            <div style="background: rgba(79, 70, 229, 0.1); color: var(--primary); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
+            <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Low Stock Alerts</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--danger);">3</div>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
+            <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Pending Inbound POs</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--accent);">5</div>
+            </div>
+            <div style="background: rgba(14, 165, 233, 0.1); color: var(--accent); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
+            <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Open Sales Orders</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--success);">12</div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.1); color: var(--success); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="21" r="1"/>
+                    <circle cx="20" cy="21" r="1"/>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Quick Actions Panel -->
+    <div class="col-md-6">
+        <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 28px; height: 100%;">
+            <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 20px 0; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+                <svg style="width: 20px; height: 20px; color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                    <polyline points="2 17 12 22 22 17"/>
+                    <polyline points="2 12 12 17 22 12"/>
+                </svg>
+                Quick Actions
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <a href="warehouses" style="text-decoration: none; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main); transition: background-color 0.2s;">
+                    <strong style="font-size: 14px;">Manage Warehouses</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Configure zones and rack locations.</span>
+                </a>
+                <a href="products" style="text-decoration: none; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main); transition: background-color 0.2s;">
+                    <strong style="font-size: 14px;">Product Registry</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Update item information & reorder thresholds.</span>
+                </a>
+                <a href="inventory" style="text-decoration: none; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main); transition: background-color 0.2s;">
+                    <strong style="font-size: 14px;">Stock Ledger</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Track inventory levels across locations.</span>
+                </a>
+                <div style="opacity: 0.5; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main);">
+                    <strong style="font-size: 14px;">Reports Portal</strong>
+                    <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">View movements, audits & summaries.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Warehouse Nodes -->
+    <div class="col-md-6">
+        <div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 28px; height: 100%;">
+            <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 20px 0; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+                <svg style="width: 20px; height: 20px; color: var(--primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Warehouse Status
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.2);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">Main Distribution Center (WH-001)</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">100 Industrial Pkwy, Logistics City</div>
+                    </div>
+                    <span style="background: rgba(16, 185, 129, 0.1); color: var(--success); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;">ACTIVE</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.2);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">East Coast Satellite (WH-002)</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">500 Commerce Way, Boston MA</div>
+                    </div>
+                    <span style="background: rgba(16, 185, 129, 0.1); color: var(--success); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;">ACTIVE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

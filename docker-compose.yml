@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: wms_postgres_db
+    environment:
+      POSTGRES_DB: wms_db
+      POSTGRES_USER: wms_user
+      POSTGRES_PASSWORD: wms_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wms_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migration
+    container_name: wms_migration_runner
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CONNECTION_STRING: "Host=db;Port=5432;Database=wms_db;Username=wms_user;Password=wms_pass;Timeout=15;CommandTimeout=30"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: wms_blazor_app
+    ports:
+      - "5000:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=wms_db;Username=wms_user;Password=wms_pass;Timeout=15;CommandTimeout=30"
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+    volumes:
+      - uploads:/app/wwwroot/uploads
+
+volumes:
+  pgdata:
+  uploads:

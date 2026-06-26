@@ -1,0 +1,26 @@
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="container mt-5">
+                            <div class="alert alert-danger" role="alert">
+                                <h4 class="alert-heading">Access Denied</h4>
+                                <p>You do not have permission to access this resource.</p>
+                                <hr>
+                                <a href="/" class="btn btn-outline-danger">Go to Dashboard</a>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>
