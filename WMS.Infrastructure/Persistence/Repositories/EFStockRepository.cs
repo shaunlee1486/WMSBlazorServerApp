@@ -46,7 +46,7 @@ public class EFStockRepository : EFRepository<Stock>, IStockRepository
             var search = searchTerm.Trim().ToLower();
             query = query.Where(s => s.Product.Code.ToLower().Contains(search)
                                   || s.Product.Name.ToLower().Contains(search)
-                                  || s.Location.Barcode.ToLower().Contains(search));
+                                  || s.Location!.Barcode!.ToLower().Contains(search));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -169,7 +169,7 @@ public class EFStockRepository : EFRepository<Stock>, IStockRepository
             var search = searchTerm.Trim().ToLower();
             query = query.Where(s => s.Product.Code.ToLower().Contains(search)
                                   || s.Product.Name.ToLower().Contains(search)
-                                  || s.Location.Barcode.ToLower().Contains(search));
+                                  || s.Location!.Barcode!.ToLower().Contains(search));
         }
 
         return await query.OrderBy(s => s.Product.Code).ToListAsync(cancellationToken);

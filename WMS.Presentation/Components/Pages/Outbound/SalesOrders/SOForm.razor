@@ -1,6 +1,6 @@
 @page "/outbound/sales-orders/new"
 @page "/outbound/sales-orders/{Id:guid}/edit"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Customer> CustomerRepository
 @inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository

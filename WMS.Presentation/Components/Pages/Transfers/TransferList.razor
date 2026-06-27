@@ -1,5 +1,5 @@
 @page "/transfers"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Receiver,Picker,Viewer")]
 @inject IMediator Mediator
 @inject NavigationManager Navigation
 

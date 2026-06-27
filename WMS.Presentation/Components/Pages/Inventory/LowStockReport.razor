@@ -1,5 +1,5 @@
 @page "/inventory/low-stock"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,StockController,Viewer")]
 @inject IMediator Mediator
 @inject IJSRuntime JS
 @using System.Text

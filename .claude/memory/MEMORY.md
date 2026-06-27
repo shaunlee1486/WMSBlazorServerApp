@@ -56,4 +56,7 @@
   - **Dashboard:** Interactive charts (ApexCharts) for category stock values, inbound vs outbound volume, and top products by transaction, along with a live-updating movements feed.
   - **Reports Portal:** Advanced filters (category, warehouse, date range, user/supplier/customer) and CSV exports for Stock Snapshot, Movement History, Inbound Receipts, Outbound Issues, Stock Adjustments, and granular Audit Logs.
   - **User & Settings:** Administrative creation/editing of users, role assignment permissions (Admin, Manager, Receiver, Picker, etc.), password resets, self-service updates, and global company variable/currency config configurations.
-- **[ ] Phase 8 — Hardening, Production Readiness & Deployment** (Upcoming)
+- **[x] Phase 8 — Hardening, Production Readiness & Deployment**
+  - **Security:** Strict role-based authorization attributes applied to all pages, password policies enforced, account lockout, and HttpOnly/SameSite cookie validation.
+  - **Performance:** Add query database indexes for all foreign keys, status fields, and creation timestamps, and configure AsNoTracking on read queries.
+  - **Docker & Observability:** Register forwarded header proxy middleware and map `/health` endpoint in Program.cs. Create nginx websocket reverse proxy reference configuration. Ensure Docker Compose containers build and orchestrate sequentially.

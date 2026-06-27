@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddSingleton<WMS.SharedKernel.IIdGenerator, WMS.SharedKernel.UuidV7Generator>();
 
         return services;
     }

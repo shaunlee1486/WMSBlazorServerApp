@@ -1,6 +1,6 @@
 @page "/inventory/adjustments/new"
 @page "/inventory/adjustments/{Id:guid}/edit"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,StockController")]
 @inject IMediator Mediator
 @inject IStockRepository StockRepository
 @inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository

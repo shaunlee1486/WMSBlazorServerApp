@@ -1,5 +1,5 @@
 @page "/reports/audit-logs"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.Identity.AppUser> UserRepository
 @inject IJSRuntime JS

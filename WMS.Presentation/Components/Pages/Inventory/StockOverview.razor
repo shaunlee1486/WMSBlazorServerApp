@@ -1,5 +1,5 @@
 @page "/inventory"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,StockController,Receiver,Picker,Viewer")]
 @inject IMediator Mediator
 
 <PageTitle>WMS - Stock Overview</PageTitle>

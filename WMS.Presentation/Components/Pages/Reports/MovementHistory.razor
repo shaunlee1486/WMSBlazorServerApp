@@ -1,5 +1,5 @@
 @page "/reports/movements"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Viewer")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository
 @inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository

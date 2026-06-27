@@ -1,6 +1,6 @@
 @page "/transfers/new"
 @page "/transfers/{Id:guid}/edit"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Warehouse> WarehouseRepository
 @inject IRepository<WMS.Domain.Entities.MasterData.Zone> ZoneRepository

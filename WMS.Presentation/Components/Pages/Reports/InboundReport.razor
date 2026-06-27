@@ -1,5 +1,5 @@
 @page "/reports/inbound"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Viewer")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Supplier> SupplierRepository
 @inject IJSRuntime JS

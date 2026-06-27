@@ -59,8 +59,14 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(UnitOfWorkBeh
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ExceptionBehavior<,>));
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -117,5 +123,7 @@ app.MapPost("/api/auth/logout", async (SignInManager<AppUser> signInManager) =>
     await signInManager.SignOutAsync();
     return Results.Redirect("/login");
 });
+
+app.MapHealthChecks("/health");
 
 app.Run();

@@ -38,8 +38,8 @@ public class EFStockMovementRepository : EFRepository<StockMovement>, IStockMove
             query = query.Where(sm => sm.Product.Code.ToLower().Contains(search)
                                    || sm.Product.Name.ToLower().Contains(search)
                                    || (sm.ReferenceNo != null && sm.ReferenceNo.ToLower().Contains(search))
-                                   || (sm.FromLocation != null && sm.FromLocation.Barcode.ToLower().Contains(search))
-                                   || (sm.ToLocation != null && sm.ToLocation.Barcode.ToLower().Contains(search)));
+                                   || (sm.FromLocation != null && sm.FromLocation!.Barcode!.ToLower().Contains(search))
+                                   || (sm.ToLocation != null && sm.ToLocation!.Barcode!.ToLower().Contains(search)));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

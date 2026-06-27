@@ -1,5 +1,5 @@
 @page "/returns"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Receiver,Viewer")]
 @inject IMediator Mediator
 @inject NavigationManager Navigation
 

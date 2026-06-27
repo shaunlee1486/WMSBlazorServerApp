@@ -1,5 +1,5 @@
 @page "/inbound/goods-receipts/new"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Receiver")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository
 @inject NavigationManager Navigation

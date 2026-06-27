@@ -1,5 +1,5 @@
 @page "/reports/stock-snapshot"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Viewer")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Warehouse> WarehouseRepository
 @inject IRepository<WMS.Domain.Entities.MasterData.Category> CategoryRepository

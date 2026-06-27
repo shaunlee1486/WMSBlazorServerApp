@@ -1,5 +1,5 @@
 @page "/reports/adjustments"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager,Viewer")]
 @inject IMediator Mediator
 @inject IRepository<WMS.Domain.Entities.MasterData.Warehouse> WarehouseRepository
 @inject IJSRuntime JS

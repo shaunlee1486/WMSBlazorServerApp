@@ -1,5 +1,5 @@
 @page "/warehouses"
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin,WarehouseManager")]
 @inject IMediator Mediator
 
 <PageTitle>WMS - Warehouses</PageTitle>
