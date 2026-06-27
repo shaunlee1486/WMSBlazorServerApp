@@ -41,7 +41,7 @@ services:
         condition: service_completed_successfully
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=wms_db;Username=wms_user;Password=wms_pass;Timeout=15;CommandTimeout=30"
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
     volumes:
       - uploads:/app/wwwroot/uploads
