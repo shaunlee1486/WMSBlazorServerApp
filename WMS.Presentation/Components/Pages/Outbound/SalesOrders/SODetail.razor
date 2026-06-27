@@ -1,0 +1,352 @@
+@page "/outbound/sales-orders/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject IPickListRepository PickListRepository
+@inject IGoodsIssueRepository GoodsIssueRepository
+
+<PageTitle>WMS - Sales Order Details</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/outbound/sales-orders" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Sales Orders
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Sales Order Details
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Overview, status history, and picking task references for this order.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (so == null)
+    {
+        <div class="alert alert-danger" style="display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+            <svg class="alert-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Sales order not found.</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+                <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: SO Info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Order General Info</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">SO Number</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 16px; font-weight: 700; color: var(--text-main);">@so.SONumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Customer</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@so.CustomerName</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Order Date</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@so.OrderDate.ToLocalTime().ToString("yyyy-MM-dd")</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Required Date</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@(so.RequiredDate?.ToLocalTime().ToString("yyyy-MM-dd") ?? "N/A")</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Note / Instructions</span>
+                    <div style="margin-top: 8px; font-size: 15px; color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--card-border); line-height: 1.5;">
+                        @(so.Note ?? "No notes provided.")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Status Card -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Lifecycle Workflow</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">Current Status:</span>
+                        <span class="badge" style="background-color: @GetStatusBgColor(so.Status); color: @GetStatusTextColor(so.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(so.Status)">
+                            @so.Status
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Total Order Value:</span>
+                        <span style="font-weight: 700; color: var(--accent);">
+                            $@TotalValue.ToString("N2")
+                        </span>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    @if (so.Status == "Draft")
+                    {
+                        <a href="/outbound/sales-orders/@(so.Id)/edit" class="btn" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            Edit Draft
+                        </a>
+                        <button class="btn btn-primary" @onclick="ConfirmSO" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 100%;">
+                            Confirm Order
+                        </button>
+                    }
+                    @if (so.Status == "Confirmed")
+                    {
+                        <button class="btn" @onclick="GeneratePickList" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--success), #059669); color: #fff; font-weight: 600; font-size: 15px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);">
+                            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Generate Pick List
+                        </button>
+                        <button class="btn" @onclick="CancelSO" style="padding: 12px; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); font-weight: 600; font-size: 15px; width: 100%;">
+                            Cancel Sales Order
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Documents -->
+        @if (linkedPickLists.Any() || linkedGoodsIssues.Any())
+        {
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Related Fulfillment Documents</h3>
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    @if (linkedPickLists.Any())
+                    {
+                        <div>
+                            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 8px;">Pick Lists</span>
+                            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                @foreach (var pl in linkedPickLists)
+                                {
+                                    <a href="/outbound/pick-lists/@pl.Id" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--card-border); padding: 8px 16px; border-radius: 8px; color: var(--text-main); font-family: monospace; text-decoration: none; font-size: 14px;">
+                                        <svg style="width: 14px; height: 14px; color: var(--primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                        </svg>
+                                        @pl.PickListNumber
+                                        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">(@pl.Status)</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (linkedGoodsIssues.Any())
+                    {
+                        <div style="margin-top: 8px;">
+                            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 8px;">Goods Issues</span>
+                            <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                @foreach (var gi in linkedGoodsIssues)
+                                {
+                                    <a href="/outbound/goods-issues/@gi.Id" style="display: inline-flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--card-border); padding: 8px 16px; border-radius: 8px; color: var(--text-main); font-family: monospace; text-decoration: none; font-size: 14px;">
+                                        <svg style="width: 14px; height: 14px; color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="21 8 21 21 3 21 3 8"/>
+                                            <rect x="1" y="3" width="22" height="5"/>
+                                        </svg>
+                                        @gi.GINumber
+                                        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">(@gi.Status)</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Items Table -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Sales Items Ledger</h3>
+            
+            <DataTable TItem="WMS.Application.Features.SalesOrders.DTOs.SalesOrderItemDto"
+                       Items="so.Items"
+                       ColSpan="5"
+                       Page="1"
+                       PageSize="99999"
+                       TotalCount="so.Items.Count"
+                       OnPageChanged="_ => Task.CompletedTask">
+                <HeaderTemplate>
+                    <th>Product</th>
+                    <th>SKU</th>
+                    <th class="text-end">Ordered Qty</th>
+                    <th class="text-end">Picked Qty</th>
+                    <th class="text-end">Unit Price</th>
+                    <th class="text-end">Total</th>
+                </HeaderTemplate>
+                <RowTemplate Context="item">
+                    <td style="font-weight: 600; color: var(--text-main);">@item.ProductName</td>
+                    <td style="font-family: monospace; font-size: 13px;">@item.ProductCode</td>
+                    <td class="text-end">@item.OrderedQty.ToString("N4")</td>
+                    <td class="text-end" style="color: @(item.PickedQty >= item.OrderedQty ? "#34d399" : (item.PickedQty > 0 ? "#fbbf24" : "var(--text-muted)")); font-weight: 600;">@item.PickedQty.ToString("N4")</td>
+                    <td class="text-end">$@item.UnitPrice.ToString("N2")</td>
+                    <td class="text-end" style="font-weight: 600; color: var(--text-main);">$@item.LineTotal.ToString("N2")</td>
+                </RowTemplate>
+            </DataTable>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private string? errorMessage;
+    private WMS.Application.Features.SalesOrders.DTOs.SalesOrderDto? so;
+    private List<WMS.Domain.Entities.Outbound.PickList> linkedPickLists = new();
+    private List<WMS.Domain.Entities.Outbound.GoodsIssue> linkedGoodsIssues = new();
+
+    private decimal TotalValue => so?.Items.Sum(i => i.LineTotal) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetSalesOrderByIdQuery(Id));
+            if (result.IsSuccess)
+            {
+                so = result.Value;
+
+                // Load linked pick lists and goods issues
+                linkedPickLists = (await PickListRepository.FindAsync(pl => pl.SalesOrderId == Id, CancellationToken.None)).ToList();
+                linkedGoodsIssues = (await GoodsIssueRepository.FindAsync(gi => gi.SalesOrderId == Id, CancellationToken.None)).ToList();
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading Sales Order details: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ConfirmSO()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new ConfirmSalesOrderCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task CancelSO()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new CancelSalesOrderCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task GeneratePickList()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new GeneratePickListCommand(Id));
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo($"/outbound/pick-lists/{result.Value}");
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",
+            "confirmed" => "rgba(59, 130, 246, 0.1)",
+            "partialpicked" => "rgba(245, 158, 11, 0.1)",
+            "fullypicked" => "rgba(16, 185, 129, 0.1)",
+            "shipped" => "rgba(139, 92, 246, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "confirmed" => "#60a5fa",
+            "partialpicked" => "#fbbf24",
+            "fullypicked" => "#34d399",
+            "shipped" => "#a78bfa",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "confirmed" => "rgba(59, 130, 246, 0.2)",
+            "partialpicked" => "rgba(245, 158, 11, 0.2)",
+            "fullypicked" => "rgba(16, 185, 129, 0.2)",
+            "shipped" => "rgba(139, 92, 246, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

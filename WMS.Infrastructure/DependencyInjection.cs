@@ -31,6 +31,9 @@ public static class DependencyInjection
         services.AddScoped<IStockAdjustmentRepository, EFStockAdjustmentRepository>();
         services.AddScoped<IPurchaseOrderRepository, EFPurchaseOrderRepository>();
         services.AddScoped<IGoodsReceiptRepository, EFGoodsReceiptRepository>();
+        services.AddScoped<ISalesOrderRepository, EFSalesOrderRepository>();
+        services.AddScoped<IPickListRepository, EFPickListRepository>();
+        services.AddScoped<IGoodsIssueRepository, EFGoodsIssueRepository>();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IFileStorageService, FileStorageService>();

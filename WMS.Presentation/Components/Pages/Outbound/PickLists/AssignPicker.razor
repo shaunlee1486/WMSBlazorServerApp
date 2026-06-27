@@ -1,0 +1,67 @@
+@inject IMediator Mediator
+@inject UserManager<WMS.Domain.Entities.Identity.AppUser> UserManager
+
+<div class="modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1050; backdrop-filter: blur(4px);">
+    <div class="modal-content" style="background: #1e293b; border: 1px solid var(--card-border); border-radius: 16px; padding: 28px; width: 450px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);">
+        <h3 style="font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 8px; color: var(--text-main);">Assign Picking Agent</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Choose a warehouse operator to assign this picking request to.</p>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 12px; border-radius: 8px; color: #fca5a5; font-size: 14px;">
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div class="form-group" style="margin-bottom: 24px;">
+            <label style="color: var(--text-muted); font-size: 13px; font-weight: 600; text-transform: uppercase;">Operator / Picker</label>
+            <div style="margin-top: 8px;">
+                <select class="form-control" @bind="selectedUserId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; cursor: pointer;">
+                    <option value="">-- Unassigned --</option>
+                    @foreach (var user in operators)
+                    {
+                        <option value="@user.Id">@(string.IsNullOrWhiteSpace(user.FullName) ? user.UserName : user.FullName)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button type="button" class="btn" @onclick="() => OnClose.InvokeAsync(false)" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                Cancel
+            </button>
+            <button type="button" class="btn btn-primary" @onclick="SubmitAssignment" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                Assign Operator
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid PickListId { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+
+    private string? errorMessage;
+    private Guid? selectedUserId;
+    private List<WMS.Domain.Entities.Identity.AppUser> operators = new();
+
+    protected override void OnInitialized()
+    {
+        // Load all active users to assign
+        operators = UserManager.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToList();
+    }
+
+    private async Task SubmitAssignment()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new AssignPickListCommand(PickListId, selectedUserId));
+        if (result.IsSuccess)
+        {
+            await OnClose.InvokeAsync(true);
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+}

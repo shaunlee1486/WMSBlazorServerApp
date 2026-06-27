@@ -1,0 +1,36 @@
+# Tasks
+
+- [x] Implement Domain Entities
+  - [x] `SalesOrder.cs` & `SalesOrderItem.cs`
+  - [x] `PickList.cs` & `PickListItem.cs`
+  - [x] `GoodsIssue.cs` & `GoodsIssueItem.cs`
+- [x] Implement Database Configurations & Repository Interfaces
+  - [x] `OutboundConfigurations.cs`
+  - [x] Update `AppDbContext.cs`
+  - [x] `ISalesOrderRepository.cs` & `EFSalesOrderRepository.cs`
+  - [x] `IPickListRepository.cs` & `EFPickListRepository.cs`
+  - [x] `IGoodsIssueRepository.cs` & `EFGoodsIssueRepository.cs`
+  - [x] Update `DependencyInjection.cs`
+- [x] Implement CQRS Features for Sales Orders
+  - [x] DTOs and Validators
+  - [x] Commands (`CreateSalesOrder`, `UpdateSalesOrder`, `ConfirmSalesOrder`, `CancelSalesOrder`)
+  - [x] Queries (`GetSalesOrders`, `GetSalesOrderById`)
+- [x] Implement CQRS Features for Pick Lists
+  - [x] DTOs and Validators
+  - [x] Commands (`GeneratePickList`, `AssignPickList`, `UpdatePickedQty`, `CompletePickList`)
+  - [x] Queries (`GetPickLists`, `GetPickListById`)
+- [x] Implement CQRS Features for Goods Issues
+  - [x] DTOs and Validators
+  - [x] Commands (`CompleteGoodsIssue`, `CancelGoodsIssue`)
+  - [x] Queries (`GetGoodsIssues`, `GetGoodsIssueById`)
+- [x] Implement Presentation UI Pages
+  - [x] `SOList.razor`
+  - [x] `SOForm.razor`
+  - [x] `SODetail.razor`
+  - [x] `PickListDashboard.razor`
+  - [x] `PickListDetail.razor`
+  - [x] `AssignPicker.razor`
+  - [x] `GIList.razor`
+  - [x] `GIDetail.razor`
+- [x] Update Layout Navigation Menu
+- [x] Build & Verify Compilation

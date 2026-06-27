@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using WMS.Application.Common.Interfaces;
 using WMS.Domain.Entities.Identity;
 using WMS.Domain.Entities.Inbound;
+using WMS.Domain.Entities.Outbound;
 using WMS.Domain.Entities.Inventory;
 using WMS.Domain.Entities.MasterData;
 using WMS.Domain.Entities.Reporting;
@@ -58,6 +59,14 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
     public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
     public DbSet<GoodsReceiptItem> GoodsReceiptItems => Set<GoodsReceiptItem>();
 
+    // Outbound
+    public DbSet<SalesOrder> SalesOrders => Set<SalesOrder>();
+    public DbSet<SalesOrderItem> SalesOrderItems => Set<SalesOrderItem>();
+    public DbSet<PickList> PickLists => Set<PickList>();
+    public DbSet<PickListItem> PickListItems => Set<PickListItem>();
+    public DbSet<GoodsIssue> GoodsIssues => Set<GoodsIssue>();
+    public DbSet<GoodsIssueItem> GoodsIssueItems => Set<GoodsIssueItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -86,6 +95,9 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
         builder.Entity<StockAdjustment>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<PurchaseOrder>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<GoodsReceipt>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<SalesOrder>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<PickList>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<GoodsIssue>().HasQueryFilter(x => !x.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

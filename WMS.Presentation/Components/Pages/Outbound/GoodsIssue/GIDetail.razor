@@ -1,0 +1,287 @@
+@page "/outbound/goods-issues/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+@inject UserManager<WMS.Domain.Entities.Identity.AppUser> UserManager
+
+<PageTitle>WMS - Goods Issue Details</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/outbound/goods-issues" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Goods Issues
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Goods Issue Details
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Overview, itemized dispatch locations, batch mapping, and inventory updates.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (gi == null)
+    {
+        <div class="alert alert-danger" style="display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+            <svg class="alert-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Goods issue not found.</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+                <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: GI General Info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Shipment Info</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">GI Number</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 16px; font-weight: 700; color: var(--text-main);">@gi.GINumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Sales Order</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 15px; color: var(--text-main);">
+                            <a href="/outbound/sales-orders/@gi.SalesOrderId" style="color: var(--primary); text-decoration: none;">@gi.SONumber</a>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Customer</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@gi.CustomerName</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Issued Date</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@gi.IssuedDate.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Note / Remarks</span>
+                    @if (gi.Status == "Draft")
+                    {
+                        <div style="margin-top: 8px;">
+                            <textarea class="form-control" @bind="Note" rows="2" placeholder="Enter optional notes for shipment dispatch..." style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; resize: vertical;"></textarea>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="margin-top: 8px; font-size: 15px; color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--card-border); line-height: 1.5;">
+                            @(gi.Note ?? "No notes provided.")
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Right Panel: Status Card -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Lifecycle Workflow</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">Current Status:</span>
+                        <span class="badge" style="background-color: @GetStatusBgColor(gi.Status); color: @GetStatusTextColor(gi.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(gi.Status)">
+                            @gi.Status
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Operator:</span>
+                        <span style="font-weight: 600; color: var(--text-main);">@operatorName</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    @if (gi.Status == "Draft")
+                    {
+                        <button class="btn btn-primary" @onclick="CompleteGI" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 100%;">
+                            Complete Dispatch Issue
+                        </button>
+                        <button class="btn" @onclick="CancelGI" style="padding: 12px; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); font-weight: 600; font-size: 15px; width: 100%;">
+                            Cancel Goods Issue
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Issued Items</h3>
+            
+            <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr>
+                        <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product</th>
+                        <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Location Bin</th>
+                        <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Issued Qty</th>
+                        <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center; width: 220px;">Batch Number</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in gi.Items)
+                    {
+                        <tr>
+                            <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                <div style="font-weight: 600; color: var(--text-main);">@item.ProductName</div>
+                                <div style="font-family: monospace; font-size: 12px; color: var(--text-muted); margin-top: 4px;">@item.ProductCode</div>
+                            </td>
+                            <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                <span class="badge" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: #818cf8; font-weight: 600; padding: 4px 8px; border-radius: 6px; font-size: 12px;">
+                                    @item.LocationName
+                                </span>
+                            </td>
+                            <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">@item.IssuedQty.ToString("N4")</td>
+                            <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                @if (gi.Status == "Draft")
+                                {
+                                    <input type="text" class="form-control" @bind="item.BatchNo" placeholder="N/A" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 6px 12px; font-size: 13px; outline: none; width: 100%; text-align: center; box-sizing: border-box;" />
+                                }
+                                else
+                                {
+                                    <span style="font-family: monospace; color: var(--text-main);">@(string.IsNullOrWhiteSpace(item.BatchNo) ? "N/A" : item.BatchNo)</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private string? errorMessage;
+    private WMS.Application.Features.GoodsIssue.DTOs.GoodsIssueDto? gi;
+    private string operatorName = "System";
+    private string? Note;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetGoodsIssueByIdQuery(Id));
+            if (result.IsSuccess)
+            {
+                gi = result.Value;
+                Note = gi.Note;
+
+                var user = await UserManager.FindByIdAsync(gi.IssuedBy.ToString());
+                operatorName = user != null ? (string.IsNullOrWhiteSpace(user.FullName) ? user.UserName! : user.FullName) : "Unknown Operator";
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading Goods Issue: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task CompleteGI()
+    {
+        if (gi == null) return;
+        errorMessage = null;
+
+        var batchInputs = gi.Items.Select(i => new CompleteGoodsIssueItemInput(i.Id, i.BatchNo)).ToList();
+
+        var result = await Mediator.Send(new CompleteGoodsIssueCommand(Id, Note, batchInputs));
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo("/outbound/goods-issues");
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task CancelGI()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new CancelGoodsIssueCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",
+            "completed" => "rgba(16, 185, 129, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "completed" => "#34d399",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "completed" => "rgba(16, 185, 129, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}
