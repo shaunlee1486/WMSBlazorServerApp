@@ -17,6 +17,7 @@ using WMS.Domain.Entities.Outbound;
 using WMS.Domain.Entities.Inventory;
 using WMS.Domain.Entities.MasterData;
 using WMS.Domain.Entities.Reporting;
+using WMS.Domain.Entities.Internal;
 using WMS.Domain.Interfaces;
 using WMS.SharedKernel;
 
@@ -67,6 +68,12 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
     public DbSet<GoodsIssue> GoodsIssues => Set<GoodsIssue>();
     public DbSet<GoodsIssueItem> GoodsIssueItems => Set<GoodsIssueItem>();
 
+    // Internal / Transfers & Returns
+    public DbSet<TransferOrder> TransferOrders => Set<TransferOrder>();
+    public DbSet<TransferOrderItem> TransferOrderItems => Set<TransferOrderItem>();
+    public DbSet<Return> Returns => Set<Return>();
+    public DbSet<ReturnItem> ReturnItems => Set<ReturnItem>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -98,6 +105,8 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
         builder.Entity<SalesOrder>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<PickList>().HasQueryFilter(x => !x.IsDeleted);
         builder.Entity<GoodsIssue>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<TransferOrder>().HasQueryFilter(x => !x.IsDeleted);
+        builder.Entity<Return>().HasQueryFilter(x => !x.IsDeleted);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

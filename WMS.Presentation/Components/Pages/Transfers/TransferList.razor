@@ -1,0 +1,319 @@
+@page "/transfers"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Transfer Orders</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Transfer Orders</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Create, approve, and track stock transfers between warehouses.</p>
+    </div>
+    
+    <a href="/transfers/new" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+        <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Transfer Order
+    </a>
+</div>
+
+<!-- Tabs for Status Filtering -->
+<div class="tabs-container" style="display: flex; gap: 8px; border-bottom: 1px solid var(--card-border); margin-bottom: 24px; padding-bottom: 8px;">
+    @foreach (var tab in statusTabs)
+    {
+        <button class="tab-button @(SelectedTab == tab ? "active" : "")" @onclick="() => SelectTab(tab)">
+            @tab
+        </button>
+    }
+</div>
+
+<!-- Search & Filter Controls -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center;">
+    <div class="input-group" style="flex: 1; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+        <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" class="form-control" placeholder="Search TO number, warehouse..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none; width: 100%;" />
+    </div>
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 10px 20px; border-radius: 8px;">
+        Filter
+    </button>
+</div>
+
+<!-- Errors -->
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+        <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>@errorMessage</span>
+    </div>
+}
+
+<!-- Main Table -->
+@if (transfers == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="TransferOrderDto"
+               Items="transfers"
+               ColSpan="6"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th @onclick='() => Sort("TONumber")' style="cursor: pointer; user-select: none;">
+                TO Number @GetSortIcon("TONumber")
+            </th>
+            <th @onclick='() => Sort("FromWarehouse")' style="cursor: pointer; user-select: none;">
+                Source Warehouse @GetSortIcon("FromWarehouse")
+            </th>
+            <th @onclick='() => Sort("ToWarehouse")' style="cursor: pointer; user-select: none;">
+                Destination Warehouse @GetSortIcon("ToWarehouse")
+            </th>
+            <th>Requested Date</th>
+            <th @onclick='() => Sort("Status")' style="cursor: pointer; user-select: none;">
+                Status @GetSortIcon("Status")
+            </th>
+            <th class="text-end">Actions</th>
+        </HeaderTemplate>
+        <RowTemplate Context="to">
+            <td style="font-weight: 600; color: var(--text-main); font-family: monospace;">@to.TONumber</td>
+            <td>@to.FromWarehouseName</td>
+            <td>@to.ToWarehouseName</td>
+            <td style="color: var(--text-muted); font-size: 13px;">@to.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+            <td>
+                <span class="badge" style="background-color: @GetStatusBgColor(to.Status); color: @GetStatusTextColor(to.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(to.Status)">
+                    @to.Status
+                </span>
+            </td>
+            <td class="text-end">
+                <div style="display: inline-flex; gap: 8px;">
+                    <a href="/transfers/@to.Id" class="btn btn-sm" title="View Details" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2); text-decoration: none; font-size: 13px;">
+                        View
+                    </a>
+                    @if (to.Status == "Draft")
+                    {
+                        <a href="/transfers/@(to.Id)/edit" class="btn btn-sm" title="Edit TO" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); text-decoration: none; font-size: 13px;">
+                            Edit
+                        </a>
+                        <button class="btn btn-sm btn-primary" @onclick="() => ApproveTO(to.Id)" title="Approve Order" style="padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                            Approve
+                        </button>
+                    }
+                    @if (to.Status == "Approved")
+                    {
+                        <button class="btn btn-sm btn-primary" @onclick="() => StartTO(to.Id)" title="Ship / Start Transfer" style="padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; background-color: #3b82f6;">
+                            Ship
+                        </button>
+                    }
+                    @if (to.Status == "InTransit")
+                    {
+                        <button class="btn btn-sm btn-primary" @onclick="() => CompleteTO(to.Id)" title="Complete Transfer" style="padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; background-color: #10b981;">
+                            Receive
+                        </button>
+                    }
+                </div>
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+<style>
+    .tab-button {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: 6px;
+    }
+
+    .tab-button:hover {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-button.active {
+        color: var(--primary);
+        background: var(--primary-light);
+    }
+</style>
+
+@code {
+    private readonly string[] statusTabs = { "All", "Draft", "Approved", "InTransit", "Completed", "Cancelled" };
+    private string SelectedTab = "All";
+
+    private IReadOnlyList<TransferOrderDto>? transfers;
+    private string SearchTerm = string.Empty;
+    private string SortColumn = "CreatedAt";
+    private string SortOrder = "desc";
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        errorMessage = null;
+        var statusFilter = SelectedTab == "All" ? null : SelectedTab;
+        var result = await Mediator.Send(new GetTransferOrdersQuery(
+            SearchTerm, statusFilter, SortColumn, SortOrder, Page, PageSize));
+        
+        transfers = result.Items;
+        TotalCount = result.TotalCount;
+    }
+
+    private async Task SelectTab(string tabName)
+    {
+        SelectedTab = tabName;
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+
+    private async Task Sort(string column)
+    {
+        if (SortColumn == column)
+        {
+            SortOrder = SortOrder == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            SortColumn = column;
+            SortOrder = "asc";
+        }
+        Page = 1;
+        await LoadData();
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (SortColumn != column) return string.Empty;
+        return SortOrder == "asc" ? " ▲" : " ▼";
+    }
+
+    private async Task ApproveTO(Guid id)
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new ApproveTransferOrderCommand(id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task StartTO(Guid id)
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new StartTransferCommand(id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task CompleteTO(Guid id)
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new CompleteTransferCommand(id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.1)",
+            "approved" => "rgba(59, 130, 246, 0.1)",
+            "intransit" => "rgba(245, 158, 11, 0.1)",
+            "completed" => "rgba(16, 185, 129, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "#94a3b8",
+            "approved" => "#60a5fa",
+            "intransit" => "#fbbf24",
+            "completed" => "#34d399",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "draft" => "rgba(148, 163, 184, 0.2)",
+            "approved" => "rgba(59, 130, 246, 0.2)",
+            "intransit" => "rgba(245, 158, 11, 0.2)",
+            "completed" => "rgba(16, 185, 129, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

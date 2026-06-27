@@ -49,6 +49,8 @@
   - **Sales Orders:** Draft, confirm (evaluates stock globally and reserves quantity at locations using FIFO), and cancel (releases reservations).
   - **Pick Lists:** Generated using FIFO suggestions from reservation locations, picker assignment, checklist updating, and goods issue generation.
   - **Goods Issue:** Dispatches stock, decrements quantity and releases reservation atomically, and registers immutable stock movement records.
-- **[ ] Phase 6 — Transfer Orders & Returns** (Upcoming)
+- **[x] Phase 6 — Transfer Orders & Returns**
+  - **Transfer Orders:** Draft, approve, ship (reserves stock at source location), and receive (decrements source stock, increments destination stock, and registers Transfer stock movements).
+  - **Returns Ledger:** Customer and supplier returns. Supplier returns decrement inventory. Customer returns support line-by-line inspection (Accepted/Rejected) and increment target bin stock only for Accepted items upon completion.
 - **[ ] Phase 7 — Dashboard, Reports & User Management** (Upcoming)
 - **[ ] Phase 8 — Hardening, Production Readiness & Deployment** (Upcoming)

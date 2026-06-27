@@ -1,0 +1,278 @@
+@page "/returns"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Returns Ledger</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Returns Ledger</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Track and manage incoming customer returns or outgoing supplier returns.</p>
+    </div>
+    
+    <div style="display: inline-flex; gap: 12px;">
+        <a href="/returns/new?type=Customer" class="btn" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none; border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; background: rgba(16, 185, 129, 0.1);">
+            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Customer Return
+        </a>
+        <a href="/returns/new?type=Supplier" class="btn" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.2); color: #60a5fa; background: rgba(59, 130, 246, 0.1);">
+            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Supplier Return
+        </a>
+    </div>
+</div>
+
+<!-- Tabs for Status Filtering -->
+<div class="tabs-container" style="display: flex; gap: 8px; border-bottom: 1px solid var(--card-border); margin-bottom: 24px; padding-bottom: 8px;">
+    @foreach (var tab in statusTabs)
+    {
+        <button class="tab-button @(SelectedTab == tab ? "active" : "")" @onclick="() => SelectTab(tab)">
+            @tab
+        </button>
+    }
+</div>
+
+<!-- Search & Filter Controls -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; justify-content: space-between;">
+    <div style="display: flex; gap: 16px; align-items: center; flex: 1;">
+        <div class="input-group" style="flex: 1; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+            <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+            </span>
+            <input type="text" class="form-control" placeholder="Search return number, reference..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none; width: 100%;" />
+        </div>
+        
+        <div>
+            <select class="form-control" @bind="SelectedReturnType" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; cursor: pointer;">
+                <option value="All">All Types</option>
+                <option value="Customer">Customer Returns</option>
+                <option value="Supplier">Supplier Returns</option>
+            </select>
+        </div>
+    </div>
+    
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 10px 20px; border-radius: 8px;">
+        Filter
+    </button>
+</div>
+
+<!-- Errors -->
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+        <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>@errorMessage</span>
+    </div>
+}
+
+<!-- Main Table -->
+@if (returns == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="ReturnDto"
+               Items="returns"
+               ColSpan="6"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th @onclick='() => Sort("ReturnNumber")' style="cursor: pointer; user-select: none;">
+                Return Number @GetSortIcon("ReturnNumber")
+            </th>
+            <th @onclick='() => Sort("ReturnType")' style="cursor: pointer; user-select: none;">
+                Return Type @GetSortIcon("ReturnType")
+            </th>
+            <th @onclick='() => Sort("ReferenceNo")' style="cursor: pointer; user-select: none;">
+                Ref Document @GetSortIcon("ReferenceNo")
+            </th>
+            <th>Date Created</th>
+            <th @onclick='() => Sort("Status")' style="cursor: pointer; user-select: none;">
+                Status @GetSortIcon("Status")
+            </th>
+            <th class="text-end">Actions</th>
+        </HeaderTemplate>
+        <RowTemplate Context="r">
+            <td style="font-weight: 600; color: var(--text-main); font-family: monospace;">@r.ReturnNumber</td>
+            <td>
+                <span style="color: @(r.ReturnType == "Customer" ? "#34d399" : "#60a5fa"); font-weight: 600; font-size: 13px;">
+                    @(r.ReturnType == "Customer" ? "Customer Return" : "Supplier Return")
+                </span>
+            </td>
+            <td>@r.ReferenceNo</td>
+            <td style="color: var(--text-muted); font-size: 13px;">@r.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+            <td>
+                <span class="badge" style="background-color: @GetStatusBgColor(r.Status); color: @GetStatusTextColor(r.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(r.Status)">
+                    @r.Status
+                </span>
+            </td>
+            <td class="text-end">
+                <a href="/returns/@r.Id" class="btn btn-sm" title="View Details" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2); text-decoration: none; font-size: 13px;">
+                    View
+                </a>
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+<style>
+    .tab-button {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: 6px;
+    }
+
+    .tab-button:hover {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-button.active {
+        color: var(--primary);
+        background: var(--primary-light);
+    }
+</style>
+
+@code {
+    private readonly string[] statusTabs = { "All", "Pending", "Processing", "Completed", "Cancelled" };
+    private string SelectedTab = "All";
+    private string SelectedReturnType = "All";
+
+    private IReadOnlyList<ReturnDto>? returns;
+    private string SearchTerm = string.Empty;
+    private string SortColumn = "CreatedAt";
+    private string SortOrder = "desc";
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        errorMessage = null;
+        var statusFilter = SelectedTab == "All" ? null : SelectedTab;
+        var typeFilter = SelectedReturnType == "All" ? null : SelectedReturnType;
+        
+        var result = await Mediator.Send(new GetReturnsQuery(
+            SearchTerm, statusFilter, typeFilter, SortColumn, SortOrder, Page, PageSize));
+        
+        returns = result.Items;
+        TotalCount = result.TotalCount;
+    }
+
+    private async Task SelectTab(string tabName)
+    {
+        SelectedTab = tabName;
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+
+    private async Task Sort(string column)
+    {
+        if (SortColumn == column)
+        {
+            SortOrder = SortOrder == "asc" ? "desc" : "asc";
+        }
+        else
+        {
+            SortColumn = column;
+            SortOrder = "asc";
+        }
+        Page = 1;
+        await LoadData();
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (SortColumn != column) return string.Empty;
+        return SortOrder == "asc" ? " ▲" : " ▼";
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.1)",
+            "processing" => "rgba(245, 158, 11, 0.1)",
+            "completed" => "rgba(16, 185, 129, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "#94a3b8",
+            "processing" => "#fbbf24",
+            "completed" => "#34d399",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.2)",
+            "processing" => "rgba(245, 158, 11, 0.2)",
+            "completed" => "rgba(16, 185, 129, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

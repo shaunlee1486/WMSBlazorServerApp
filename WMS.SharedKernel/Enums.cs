@@ -75,3 +75,32 @@ public enum ZoneType
     Shipping,
     Return
 }
+
+public enum ReturnType
+{
+    Customer,
+    Supplier
+}
+
+public enum ReturnStatus
+{
+    Pending,
+    Processing,
+    Completed,
+    Cancelled
+}
+
+public enum InspectionStatus
+{
+    Pending,
+    Accepted,
+    Rejected
+}
+
+public enum TransferOrderItemStatus
+{
+    Pending,
+    Shipped,
+    Received
+}
+

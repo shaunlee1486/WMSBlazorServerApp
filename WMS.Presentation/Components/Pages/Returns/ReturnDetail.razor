@@ -1,0 +1,335 @@
+@page "/returns/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - Return Details</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/returns" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Returns Ledger
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        Return Order Details
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Overview, item inspections, and processing controls for this return.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (returnOrder == null)
+    {
+        <div class="alert alert-danger" style="display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+            <svg class="alert-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Return order not found.</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+                <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+            <!-- Left Panel: Return Info -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Return General Info</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Return Number</span>
+                        <div style="margin-top: 6px; font-family: monospace; font-size: 16px; font-weight: 700; color: var(--text-main);">@returnOrder.ReturnNumber</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Return Type</span>
+                        <div style="margin-top: 6px; font-size: 15px; font-weight: 600; color: @(returnOrder.ReturnType == "Customer" ? "#34d399" : "#60a5fa");">
+                            @(returnOrder.ReturnType == "Customer" ? "Customer Return" : "Supplier Return")
+                        </div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Date Created</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@returnOrder.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Ref Document</span>
+                        <div style="margin-top: 6px; font-size: 15px; color: var(--text-main);">@returnOrder.ReferenceNo</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <span style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase;">Notes</span>
+                    <div style="margin-top: 8px; font-size: 15px; color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--card-border); line-height: 1.5;">
+                        @(returnOrder.Note ?? "No notes provided.")
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Status Card -->
+            <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+                <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Lifecycle Workflow</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">Current Status:</span>
+                        <span class="badge" style="background-color: @GetStatusBgColor(returnOrder.Status); color: @GetStatusTextColor(returnOrder.Status); padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid @GetStatusBorderColor(returnOrder.Status)">
+                            @returnOrder.Status
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-muted);">Total Items:</span>
+                        <span style="font-weight: 700; color: var(--text-main);">@returnOrder.Items.Count</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    @if (returnOrder.Status == "Pending" || returnOrder.Status == "Processing")
+                    {
+                        var hasPending = IsCustomerReturn && returnOrder.Items.Any(i => i.InspectionStatus == "Pending");
+                        <button class="btn btn-primary" @onclick="ProcessReturn" disabled="@hasPending" title="@(hasPending ? "Complete all item inspections first" : "Finalize return order and update inventory")" style="padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; width: 100%; background-color: #10b981; cursor: @(hasPending ? "not-allowed" : "pointer"); opacity: @(hasPending ? "0.5" : "1")">
+                            Process & Finalize
+                        </button>
+                        
+                        <button class="btn" @onclick="CancelReturn" style="padding: 12px; border-radius: 8px; border: 1px solid var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.05); font-weight: 600; font-size: 15px; width: 100%;">
+                            Cancel Return
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Return Items & Inspections -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Return Items & Inspection States</h3>
+            <div style="overflow-x: auto;">
+                <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); width: 35%;">Product</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); width: 20%;">Bin Location</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right; width: 10%;">Qty</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center; width: 15%;">Inspection Status</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center; width: 20%;">Actions / Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in returnOrder.Items)
+                        {
+                            <tr>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <span style="font-weight: 600; color: var(--text-main);">@item.ProductCode</span>
+                                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">@item.ProductName</div>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-family: monospace;">@item.LocationBarcode</td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; font-weight: 600;">@item.Quantity</td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                    <span class="badge" style="background-color: @GetInspectionBgColor(item.InspectionStatus); color: @GetInspectionTextColor(item.InspectionStatus); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid @GetInspectionBorderColor(item.InspectionStatus)">
+                                        @item.InspectionStatus
+                                    </span>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                    @if (IsCustomerReturn && (returnOrder.Status == "Pending" || returnOrder.Status == "Processing"))
+                                    {
+                                        <div style="display: inline-flex; gap: 8px;">
+                                            <button class="btn btn-sm" @onclick='() => InspectItem(item.Id, InspectionStatus.Accepted)' style="padding: 4px 8px; font-size: 12px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2); color: #34d399; background: rgba(16, 185, 129, 0.1);">
+                                                Accept
+                                            </button>
+                                            <button class="btn btn-sm" @onclick='() => InspectItem(item.Id, InspectionStatus.Rejected)' style="padding: 4px 8px; font-size: 12px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; background: rgba(239, 68, 68, 0.1);">
+                                                Reject
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span style="font-size: 13px; color: var(--text-muted);">
+                                            @(item.Note ?? "-")
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private string? errorMessage;
+    private ReturnDto? returnOrder;
+
+    private bool IsCustomerReturn => returnOrder != null && string.Equals(returnOrder.ReturnType, "Customer", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            loading = true;
+            errorMessage = null;
+            var result = await Mediator.Send(new GetReturnByIdQuery(Id));
+            if (result.IsSuccess)
+            {
+                returnOrder = result.Value;
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task InspectItem(Guid itemId, InspectionStatus status)
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new UpdateReturnInspectionStatusCommand(Id, itemId, status, "Inspected by operator"));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task ProcessReturn()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new ProcessReturnCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private async Task CancelReturn()
+    {
+        errorMessage = null;
+        var result = await Mediator.Send(new CancelReturnCommand(Id));
+        if (result.IsSuccess)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = result.Error;
+        }
+    }
+
+    private string GetStatusBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.1)",
+            "processing" => "rgba(245, 158, 11, 0.1)",
+            "completed" => "rgba(16, 185, 129, 0.1)",
+            "cancelled" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetStatusTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "#94a3b8",
+            "processing" => "#fbbf24",
+            "completed" => "#34d399",
+            "cancelled" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetStatusBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.2)",
+            "processing" => "rgba(245, 158, 11, 0.2)",
+            "completed" => "rgba(16, 185, 129, 0.2)",
+            "cancelled" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+
+    private string GetInspectionBgColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.1)",
+            "accepted" => "rgba(16, 185, 129, 0.1)",
+            "rejected" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetInspectionTextColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "#94a3b8",
+            "accepted" => "#34d399",
+            "rejected" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private string GetInspectionBorderColor(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "rgba(148, 163, 184, 0.2)",
+            "accepted" => "rgba(16, 185, 129, 0.2)",
+            "rejected" => "rgba(239, 68, 68, 0.2)",
+            _ => "transparent"
+        };
+    }
+}

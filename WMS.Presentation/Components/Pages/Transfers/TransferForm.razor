@@ -1,0 +1,382 @@
+@page "/transfers/new"
+@page "/transfers/{Id:guid}/edit"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IRepository<WMS.Domain.Entities.MasterData.Warehouse> WarehouseRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Zone> ZoneRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository
+@inject ITransferOrderRepository TransferOrderRepository
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - @(IsEditMode ? $"Edit Transfer Order {toNumber}" : "New Transfer Order")</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/transfers" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Transfer Orders
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">
+        @(IsEditMode ? $"Edit Transfer Order {toNumber}" : "New Transfer Order")
+    </h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">
+        Configure stock transfer requests between warehouses.
+    </p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+            <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+        <!-- Left Panel: General info -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Warehouse Routing</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label style="color: var(--text-muted); font-size: 14px; font-weight: 600;">From Warehouse (Source)</label>
+                    <div style="margin-top: 8px;">
+                        <select class="form-control" @bind="FromWarehouseId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; cursor: pointer;">
+                            <option value="">-- Select Source Warehouse --</option>
+                            @if (warehouses != null)
+                            {
+                                foreach (var w in warehouses)
+                                {
+                                    <option value="@w.Id">@w.Name (@w.Code)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: var(--text-muted); font-size: 14px; font-weight: 600;">To Warehouse (Destination)</label>
+                    <div style="margin-top: 8px;">
+                        <select class="form-control" @bind="ToWarehouseId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 15px; outline: none; width: 100%; cursor: pointer;">
+                            <option value="">-- Select Destination Warehouse --</option>
+                            @if (warehouses != null)
+                            {
+                                foreach (var w in warehouses)
+                                {
+                                    <option value="@w.Id">@w.Name (@w.Code)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Summary -->
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 145px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">Transfer Summary</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Status:</span>
+                    <span style="font-weight: 600; color: #94a3b8;">Draft</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted);">Total Line Items:</span>
+                    <span style="font-weight: 600; color: var(--text-main);">@items.Count</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Items Section -->
+    <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px;">
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: var(--text-main);">Transfer Order Items</h3>
+            <button type="button" class="btn btn-sm" @onclick="AddItem" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Item
+            </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr>
+                        <th style="width: 30%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product</th>
+                        <th style="width: 25%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Source Bin</th>
+                        <th style="width: 25%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Dest Bin</th>
+                        <th style="width: 12%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Quantity</th>
+                        <th style="width: 8%; padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!items.Any())
+                    {
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted); border-bottom: 1px solid var(--card-border);">
+                                No items added yet. Click "Add Item" to start drafting.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @for (int i = 0; i < items.Count; i++)
+                        {
+                            var index = i;
+                            var item = items[index];
+                            <tr>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <select class="form-control" @bind="item.ProductId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+                                        <option value="">-- Select Product --</option>
+                                        @if (products != null)
+                                        {
+                                            foreach (var p in products)
+                                            {
+                                                <option value="@p.Id">@p.Name (@p.Code)</option>
+                                            }
+                                        }
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <select class="form-control" @bind="item.FromLocationId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+                                        <option value="">-- Select Source Bin --</option>
+                                        @foreach (var loc in GetSourceLocations())
+                                        {
+                                            <option value="@loc.Id">@loc.Barcode (Aisle @loc.Aisle, Bay @loc.Bay)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <select class="form-control" @bind="item.ToLocationId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+                                        <option value="">-- Select Dest Bin --</option>
+                                        @foreach (var loc in GetDestinationLocations())
+                                        {
+                                            <option value="@loc.Id">@loc.Barcode (Aisle @loc.Aisle, Bay @loc.Bay)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                                    <input type="number" step="any" class="form-control" @bind="item.Qty" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; width: 100px; text-align: right; display: inline-block;" />
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: center;">
+                                    <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveItem(index)" style="padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; background: rgba(239, 68, 68, 0.1);">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <a href="/transfers" class="btn" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); padding: 10px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 15px;">
+            Cancel
+        </a>
+        <button type="button" class="btn btn-primary" @onclick="SaveOrder" style="padding: 10px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer;">
+            Save Draft
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsEditMode => Id.HasValue;
+    private string toNumber = string.Empty;
+
+    private bool loading = true;
+    private string? errorMessage;
+
+    private Guid? FromWarehouseId { get; set; }
+    private Guid? ToWarehouseId { get; set; }
+
+    private List<FormItem> items = new();
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Warehouse>? warehouses;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Zone>? zones;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Location>? locations;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            warehouses = await WarehouseRepository.FindAsync(w => w.IsActive, CancellationToken.None);
+            zones = await ZoneRepository.GetAllAsync(CancellationToken.None);
+            locations = await LocationRepository.FindAsync(l => l.IsActive, CancellationToken.None);
+            products = await ProductRepository.FindAsync(p => p.IsActive, CancellationToken.None);
+
+            if (IsEditMode)
+            {
+                var result = await TransferOrderRepository.GetByIdWithItemsAsync(Id!.Value);
+                if (result != null)
+                {
+                    if (result.Status != TransferOrderStatus.Draft)
+                    {
+                        Navigation.NavigateTo($"/transfers/{Id}");
+                        return;
+                    }
+
+                    toNumber = result.TONumber;
+                    FromWarehouseId = result.FromWarehouseId;
+                    ToWarehouseId = result.ToWarehouseId;
+
+                    items = result.Items.Select(i => new FormItem
+                    {
+                        ProductId = i.ProductId,
+                        FromLocationId = i.FromLocationId,
+                        ToLocationId = i.ToLocationId,
+                        Qty = i.Qty
+                    }).ToList();
+                }
+                else
+                {
+                    errorMessage = "Transfer Order not found.";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error initializing page: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private IEnumerable<WMS.Domain.Entities.MasterData.Location> GetSourceLocations()
+    {
+        if (!FromWarehouseId.HasValue || locations == null || zones == null) 
+            return Array.Empty<WMS.Domain.Entities.MasterData.Location>();
+            
+        var sourceZones = zones.Where(z => z.WarehouseId == FromWarehouseId.Value).Select(z => z.Id).ToHashSet();
+        return locations.Where(l => sourceZones.Contains(l.ZoneId));
+    }
+
+    private IEnumerable<WMS.Domain.Entities.MasterData.Location> GetDestinationLocations()
+    {
+        if (!ToWarehouseId.HasValue || locations == null || zones == null) 
+            return Array.Empty<WMS.Domain.Entities.MasterData.Location>();
+            
+        var destZones = zones.Where(z => z.WarehouseId == ToWarehouseId.Value).Select(z => z.Id).ToHashSet();
+        return locations.Where(l => destZones.Contains(l.ZoneId));
+    }
+
+    private void AddItem()
+    {
+        items.Add(new FormItem());
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (index >= 0 && index < items.Count)
+        {
+            items.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveOrder()
+    {
+        errorMessage = null;
+
+        if (!FromWarehouseId.HasValue || !ToWarehouseId.HasValue)
+        {
+            errorMessage = "Both Source and Destination warehouses are required.";
+            return;
+        }
+
+        if (FromWarehouseId == ToWarehouseId)
+        {
+            errorMessage = "Source and Destination warehouses must be different.";
+            return;
+        }
+
+        if (!items.Any())
+        {
+            errorMessage = "At least one item is required.";
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            if (item.ProductId == Guid.Empty)
+            {
+                errorMessage = "All items must have a valid product selected.";
+                return;
+            }
+            if (item.FromLocationId == Guid.Empty || item.ToLocationId == Guid.Empty)
+            {
+                errorMessage = "All items must have valid source and destination bins selected.";
+                return;
+            }
+            if (item.Qty <= 0)
+            {
+                errorMessage = "All quantities must be greater than 0.";
+                return;
+            }
+        }
+
+        var commandItems = items.Select(i => new CreateTransferOrderItemInput(i.ProductId, i.FromLocationId, i.ToLocationId, i.Qty)).ToList();
+
+        if (IsEditMode)
+        {
+            var commandItemsUpdate = items.Select(i => new UpdateTransferOrderItemInput(i.ProductId, i.FromLocationId, i.ToLocationId, i.Qty)).ToList();
+            var result = await Mediator.Send(new UpdateTransferOrderCommand(Id!.Value, FromWarehouseId.Value, ToWarehouseId.Value, commandItemsUpdate));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/transfers/{Id}");
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+        else
+        {
+            var result = await Mediator.Send(new CreateTransferOrderCommand(FromWarehouseId.Value, ToWarehouseId.Value, commandItems));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/transfers/{result.Value}");
+            }
+            else
+            {
+                errorMessage = result.Error;
+            }
+        }
+    }
+
+    public class FormItem
+    {
+        public Guid ProductId { get; set; }
+        public Guid FromLocationId { get; set; }
+        public Guid ToLocationId { get; set; }
+        public decimal Qty { get; set; } = 1;
+    }
+}
