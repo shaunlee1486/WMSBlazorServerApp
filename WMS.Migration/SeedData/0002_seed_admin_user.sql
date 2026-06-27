@@ -25,7 +25,7 @@ INSERT INTO "Users" (
     'admin@wms.com',
     'ADMIN@WMS.COM',
     TRUE,
-    'AQAAAAAAAYagAAAAEHA5ybkBsPgLOi/KjgP4nZQeF7neoCXal3eonhCoGDkS9V40/2r6xW4kKW1NAu5WSA==',
+    'AQAAAAIAAYagAAAAEODwxVs7Mr5U7m5404+qtHM6qHTdJfUCxavwMbxFDqD+SgEyLmwaifPXu87uc3Kylg==',
     '4b7b3b9b-9bfb-48ef-93a0-fcd84ff100d8',
     '8fb6299b-4bfb-48ef-93a0-fcd84ff100d8',
     FALSE,

@@ -3,7 +3,7 @@
 ## Overview & Technology Stack
 - **Core Platform:** .NET 10 (C#) & Blazor Server UI
 - **Database Layer:** PostgreSQL
-- **Database Migrations:** Roundhouse SQL Runner (EF Core migrations are **not** used. EF Core is query/mapping only).
+- **Database Migrations:** Custom SQL Migrations Runner (EF Core migrations are **not** used. EF Core is query/mapping only). It uses a custom tracking table `"MigrationHistory"` to ensure each `.sql` script is executed exactly once.
 - **Architecture Pattern:** Clean Architecture (Onion) with MediatR CQRS, FluentValidation pipeline, and Unit of Work behaviors.
 - **Identity & Access Management:** ASP.NET Identity Core with custom Identity tables (renamed without `AspNet` prefixes).
 

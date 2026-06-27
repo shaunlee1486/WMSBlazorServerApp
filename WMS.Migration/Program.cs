@@ -26,6 +26,9 @@ try
     // Try to connect and ensure target database exists
     await EnsureDatabaseExists(connectionString);
 
+    // Ensure migration history tracking table exists
+    await EnsureMigrationTableExists(connectionString);
+
     // Run Scripts (DDL)
     await RunFolder(connectionString, "Scripts");
     // Run SeedData
@@ -70,6 +73,23 @@ static async Task EnsureDatabaseExists(string connStr)
     }
 }
 
+static async Task EnsureMigrationTableExists(string connStr)
+{
+    using var conn = new NpgsqlConnection(connStr);
+    await conn.OpenAsync();
+
+    var sql = @"
+        CREATE TABLE IF NOT EXISTS ""MigrationHistory"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""ScriptName"" VARCHAR(255) NOT NULL UNIQUE,
+            ""Hash"" VARCHAR(255) NOT NULL,
+            ""ExecutedAt"" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );";
+
+    using var cmd = new NpgsqlCommand(sql, conn);
+    await cmd.ExecuteNonQueryAsync();
+}
+
 static async Task RunFolder(string connStr, string folder)
 {
     // Search order for the folders:
@@ -110,15 +130,43 @@ static async Task RunFolder(string connStr, string folder)
     foreach (var file in files)
     {
         var fileName = Path.GetFileName(file);
+        
+        // Check if script has already been run
+        using var checkCmd = new NpgsqlCommand(@"SELECT 1 FROM ""MigrationHistory"" WHERE ""ScriptName"" = @name", conn);
+        checkCmd.Parameters.AddWithValue("name", fileName);
+        var exists = await checkCmd.ExecuteScalarAsync();
+
+        if (exists != null)
+        {
+            Console.WriteLine($"[Migration] Script {fileName} already executed. Skipping.");
+            continue;
+        }
+
         Console.WriteLine($"[Migration] Executing script: {fileName}");
 
         var scriptContent = await File.ReadAllTextAsync(file);
+
+        // Compute hash
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(scriptContent));
+        var hashString = Convert.ToHexString(hashBytes);
 
         using var transaction = await conn.BeginTransactionAsync();
         try
         {
             using var cmd = new NpgsqlCommand(scriptContent, conn, transaction);
             await cmd.ExecuteNonQueryAsync();
+
+            // Insert into history table
+            using var insertCmd = new NpgsqlCommand(@"
+                INSERT INTO ""MigrationHistory"" (""Id"", ""ScriptName"", ""Hash"", ""ExecutedAt"")
+                VALUES (@id, @name, @hash, @date)", conn, transaction);
+            insertCmd.Parameters.AddWithValue("id", Guid.NewGuid());
+            insertCmd.Parameters.AddWithValue("name", fileName);
+            insertCmd.Parameters.AddWithValue("hash", hashString);
+            insertCmd.Parameters.AddWithValue("date", DateTime.UtcNow);
+            await insertCmd.ExecuteNonQueryAsync();
+
             await transaction.CommitAsync();
             Console.WriteLine($"[Migration] Script {fileName} completed.");
         }
