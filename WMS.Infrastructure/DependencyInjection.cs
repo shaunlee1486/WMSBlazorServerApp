@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IReturnRepository, EFReturnRepository>();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
 
         return services;

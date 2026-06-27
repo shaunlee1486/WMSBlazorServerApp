@@ -1,0 +1,132 @@
+@page "/settings"
+@attribute [Authorize(Roles = "Admin,WarehouseManager")]
+@using WMS.Domain.Entities.Reporting
+@using WMS.Domain.Interfaces
+@inject IRepository<AppSetting> SettingsRepository
+@inject IUnitOfWork UnitOfWork
+
+<PageTitle>WMS - App Settings</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">App Settings</h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Configure default company info, low stock limits, and display currencies.</p>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 16px; border-radius: 8px; color: #a7f3d0;">
+            <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>@successMessage</span>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 16px; border-radius: 8px; color: #fca5a5;">
+            <svg class="alert-icon" style="width: 20px; height: 20px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@errorMessage</span>
+        </div>
+    }
+
+    @if (settings == null || !settings.Any())
+    {
+        <div style="background: rgba(30, 41, 59, 0.2); border: 1px solid var(--card-border); border-radius: 12px; padding: 48px; text-align: center; color: var(--text-muted);">
+            No application settings found. Check seed scripts.
+        </div>
+    }
+    else
+    {
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                @foreach (var setting in settings)
+                {
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 20px; margin-bottom: 10px;">
+                        <div>
+                            <span style="font-weight: 700; color: var(--text-main); font-size: 15px;">@setting.Key</span>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.5;">@setting.Description</div>
+                            <span class="badge" style="background-color: rgba(255,255,255,0.05); color: var(--text-muted); margin-top: 8px; font-size: 10px; display: inline-block;">Group: @setting.Group</span>
+                        </div>
+                        <div>
+                            @if (setting.Key.ToLower().Contains("address") || setting.Key.ToLower().Contains("note") || setting.Description?.Length > 100)
+                            {
+                                <textarea class="form-control" @bind="setting.Value" rows="3" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px; font-size: 14px; width: 100%; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+                            }
+                            else
+                            {
+                                <input type="text" class="form-control" @bind="setting.Value" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 12px 16px; font-size: 14px; width: 100%; outline: none; box-sizing: border-box;" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button class="btn btn-primary" @onclick="SaveChanges" style="padding: 10px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer;">
+                Save Changes
+            </button>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private string? successMessage;
+    private string? errorMessage;
+    private IReadOnlyList<AppSetting>? settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            settings = await SettingsRepository.GetAllAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading configuration settings: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            if (settings != null)
+            {
+                foreach (var setting in settings)
+                {
+                    SettingsRepository.Update(setting);
+                }
+                await UnitOfWork.SaveChangesAsync(CancellationToken.None);
+                successMessage = "Application settings saved successfully.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save configurations: {ex.Message}";
+        }
+    }
+}

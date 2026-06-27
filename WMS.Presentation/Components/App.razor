@@ -21,6 +21,19 @@
     <script src="_content/Blazor-ApexCharts/js/apex-charts.js"></script>
     <script src="_content/Blazor-ApexCharts/js/blazor-apex-charts.js"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+        window.downloadFile = (fileName, contentType, content) => {
+            const file = new Blob([content], { type: contentType });
+            const exportUrl = URL.createObjectURL(file);
+            const a = document.createElement("a");
+            a.href = exportUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(exportUrl);
+        }
+    </script>
 </body>
 
 </html>

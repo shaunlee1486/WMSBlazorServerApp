@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using WMS.Domain.Entities.Outbound;
@@ -20,4 +21,6 @@ public interface IGoodsIssueRepository : IRepository<GoodsIssue>
         CancellationToken cancellationToken = default);
 
     Task<string> GetNextGINumberAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<GoodsIssueItem>> GetOutboundReportAsync(Guid? customerId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default);
 }

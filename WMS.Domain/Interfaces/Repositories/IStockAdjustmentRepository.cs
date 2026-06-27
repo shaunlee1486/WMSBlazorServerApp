@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using WMS.Domain.Entities.Inventory;
@@ -20,4 +21,6 @@ public interface IStockAdjustmentRepository : IRepository<StockAdjustment>
         CancellationToken cancellationToken = default);
 
     Task<string> GetNextAdjustmentNumberAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<StockAdjustmentItem>> GetAdjustmentReportAsync(Guid? warehouseId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default);
 }

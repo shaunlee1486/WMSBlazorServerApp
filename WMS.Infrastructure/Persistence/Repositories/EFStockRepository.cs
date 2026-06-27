@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using WMS.Domain.Entities.Inventory;
+using WMS.Domain.Entities.Reporting;
 using WMS.Domain.Interfaces.Repositories;
 using WMS.Infrastructure.Persistence.Repositories;
 using WMS.SharedKernel;
@@ -90,5 +91,87 @@ public class EFStockRepository : EFRepository<Stock>, IStockRepository
             .Where(s => s.Quantity <= s.Product.ReorderPoint)
             .OrderBy(s => s.Product.Code)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<int> GetLowStockCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .CountAsync(s => s.Quantity <= s.Product.ReorderPoint, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<StockCategoryStats>> GetStockCategoryStatsAsync(CancellationToken cancellationToken = default)
+    {
+        // 1. Fetch all stock grouped by product and category
+        var stockGroups = await DbSet.AsNoTracking()
+            .Include(s => s.Product)
+                .ThenInclude(p => p.Category)
+            .GroupBy(s => new { CategoryName = s.Product.Category.Name, ProductId = s.ProductId })
+            .Select(g => new
+            {
+                CategoryName = g.Key.CategoryName,
+                ProductId = g.Key.ProductId,
+                TotalQty = g.Sum(s => s.Quantity)
+            })
+            .ToListAsync(cancellationToken);
+
+        // 2. Fetch average purchase price per product
+        var avgPrices = await DbContext.PurchaseOrderItems.AsNoTracking()
+            .GroupBy(poi => poi.ProductId)
+            .Select(g => new { ProductId = g.Key, AvgPrice = g.Average(poi => poi.UnitPrice) })
+            .ToDictionaryAsync(x => x.ProductId, x => x.AvgPrice, cancellationToken);
+
+        // 3. Group by category and sum up quantity and value
+        var categoryStats = stockGroups
+            .GroupBy(sg => sg.CategoryName)
+            .Select(g => {
+                decimal totalVal = 0;
+                decimal totalQty = 0;
+                foreach (var item in g)
+                {
+                    totalQty += item.TotalQty;
+                    decimal price = avgPrices.TryGetValue(item.ProductId, out var p) ? p : 15.00m;
+                    totalVal += item.TotalQty * price;
+                }
+                return new StockCategoryStats
+                {
+                    CategoryName = g.Key,
+                    TotalQuantity = totalQty,
+                    TotalValue = totalVal
+                };
+            })
+            .ToList();
+
+        return categoryStats;
+    }
+
+    public async Task<IReadOnlyList<Stock>> GetStockSnapshotReportAsync(Guid? warehouseId, Guid? categoryId, string? searchTerm, CancellationToken cancellationToken = default)
+    {
+        var query = DbSet.AsNoTracking()
+            .Include(s => s.Product)
+                .ThenInclude(p => p.Category)
+            .Include(s => s.Location)
+                .ThenInclude(l => l.Zone)
+                    .ThenInclude(z => z.Warehouse)
+            .AsQueryable();
+
+        if (warehouseId.HasValue)
+        {
+            query = query.Where(s => s.Location.Zone.WarehouseId == warehouseId.Value);
+        }
+
+        if (categoryId.HasValue)
+        {
+            query = query.Where(s => s.Product.CategoryId == categoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var search = searchTerm.Trim().ToLower();
+            query = query.Where(s => s.Product.Code.ToLower().Contains(search)
+                                  || s.Product.Name.ToLower().Contains(search)
+                                  || s.Location.Barcode.ToLower().Contains(search));
+        }
+
+        return await query.OrderBy(s => s.Product.Code).ToListAsync(cancellationToken);
     }
 }

@@ -1,0 +1,94 @@
+@inject IMediator Mediator
+
+<div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 380px;">
+    <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+        <svg style="width: 18px; height: 18px; color: var(--primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Stock Value by Category
+    </h3>
+    
+    @if (loading)
+    {
+        <div style="display: flex; justify-content: center; align-items: center; height: 280px;">
+            <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem; color: var(--primary) !important;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (chartData == null || !chartData.Any())
+        {
+            <div style="display: flex; justify-content: center; align-items: center; height: 280px; color: var(--text-muted);">
+                No category data available.
+            </div>
+        }
+        else
+        {
+            <ApexChart TItem="StockValueByCategoryDto"
+                       Options="chartOptions"
+                       Height="280">
+                
+                <ApexPointSeries TItem="StockValueByCategoryDto"
+                                 Items="chartData"
+                                 Name="Estimated Value ($)"
+                                 SeriesType="SeriesType.Bar"
+                                 XValue="@(e => e.CategoryName)"
+                                 YValue="@(e => e.TotalValue)"
+                                 Color="#4f46e5" />
+            </ApexChart>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private List<StockValueByCategoryDto>? chartData;
+    private ApexChartOptions<StockValueByCategoryDto> chartOptions = new()
+    {
+        Theme = new Theme { Mode = Mode.Dark },
+        Chart = new Chart 
+        { 
+            Background = "transparent",
+            Toolbar = new Toolbar { Show = false }
+        },
+        Grid = new Grid 
+        { 
+            BorderColor = "rgba(255, 255, 255, 0.05)" 
+        },
+        Xaxis = new XAxis
+        {
+            Labels = new XAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } }
+        },
+        Yaxis = new List<YAxis>
+        {
+            new YAxis
+            {
+                Labels = new YAxisLabels { Style = new AxisLabelStyle { Colors = "#94a3b8" } }
+            }
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetStockValueByCategoryQuery());
+            if (result.IsSuccess)
+            {
+                chartData = result.Value;
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -106,5 +107,33 @@ public class EFGoodsReceiptRepository : EFRepository<GoodsReceipt>, IGoodsReceip
         }
 
         return $"{prefix}{sequence:D5}";
+    }
+
+    public async Task<IReadOnlyList<GoodsReceiptItem>> GetInboundReportAsync(Guid? supplierId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default)
+    {
+        var query = DbContext.Set<GoodsReceiptItem>().AsNoTracking()
+            .Include(gri => gri.GoodsReceipt)
+                .ThenInclude(gr => gr.PurchaseOrder)
+                    .ThenInclude(po => po.Supplier)
+            .Include(gri => gri.Product)
+            .Include(gri => gri.Location)
+            .AsQueryable();
+
+        if (supplierId.HasValue)
+        {
+            query = query.Where(gri => gri.GoodsReceipt.PurchaseOrder.SupplierId == supplierId.Value);
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(gri => gri.GoodsReceipt.ReceivedDate >= startDate.Value.ToUniversalTime());
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(gri => gri.GoodsReceipt.ReceivedDate <= endDate.Value.ToUniversalTime());
+        }
+
+        return await query.OrderByDescending(gri => gri.GoodsReceipt.ReceivedDate).ToListAsync(cancellationToken);
     }
 }

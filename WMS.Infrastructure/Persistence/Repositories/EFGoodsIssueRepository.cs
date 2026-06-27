@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -106,5 +107,33 @@ public class EFGoodsIssueRepository : EFRepository<GoodsIssue>, IGoodsIssueRepos
         }
 
         return $"{prefix}{sequence:D5}";
+    }
+
+    public async Task<IReadOnlyList<GoodsIssueItem>> GetOutboundReportAsync(Guid? customerId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default)
+    {
+        var query = DbContext.Set<GoodsIssueItem>().AsNoTracking()
+            .Include(gii => gii.GoodsIssue)
+                .ThenInclude(gi => gi.SalesOrder)
+                    .ThenInclude(so => so.Customer)
+            .Include(gii => gii.Product)
+            .Include(gii => gii.Location)
+            .AsQueryable();
+
+        if (customerId.HasValue)
+        {
+            query = query.Where(gii => gii.GoodsIssue.SalesOrder.CustomerId == customerId.Value);
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(gii => gii.GoodsIssue.IssuedDate >= startDate.Value.ToUniversalTime());
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(gii => gii.GoodsIssue.IssuedDate <= endDate.Value.ToUniversalTime());
+        }
+
+        return await query.OrderByDescending(gii => gii.GoodsIssue.IssuedDate).ToListAsync(cancellationToken);
     }
 }

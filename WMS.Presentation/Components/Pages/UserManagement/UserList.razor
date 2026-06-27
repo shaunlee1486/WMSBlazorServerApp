@@ -1,0 +1,142 @@
+@page "/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject IMediator Mediator
+@inject NavigationManager Navigation
+
+<PageTitle>WMS - User Directory</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">User Accounts</h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Create, edit, reset passwords, and manage permissions for warehouse operators.</p>
+    </div>
+    
+    <a href="/users/new" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
+        <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New User Account
+    </a>
+</div>
+
+<!-- Search Controls -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center;">
+    <div class="input-group" style="flex: 1; max-width: 400px; display: flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; background: rgba(15, 23, 42, 0.6);">
+        <span style="display: flex; align-items: center; padding: 0 16px; color: var(--text-muted);">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" class="form-control" placeholder="Search name or email..." @bind="SearchTerm" @bind:event="oninput" @onkeyup="HandleKeyUp" style="border: none; background: transparent; color: var(--text-main); font-size: 14px; padding: 10px 0; outline: none; width: 100%;" />
+    </div>
+    
+    <button class="btn" @onclick="Search" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(15, 23, 42, 0.4); font-weight: 500; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
+        Search
+    </button>
+</div>
+
+<!-- Grid Table -->
+@if (users == null)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <DataTable TItem="UserDto"
+               Items="users"
+               ColSpan="6"
+               Page="Page"
+               PageSize="PageSize"
+               TotalCount="TotalCount"
+               OnPageChanged="OnPageChanged">
+        <HeaderTemplate>
+            <th>User Details</th>
+            <th>Email / Username</th>
+            <th>Role Memberships</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th class="text-end">Actions</th>
+        </HeaderTemplate>
+        <RowTemplate Context="u">
+            <td style="font-weight: 600; color: var(--text-main);">@u.FullName</td>
+            <td style="font-family: monospace;">@u.Email</td>
+            <td>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    @if (u.Roles == null || !u.Roles.Any())
+                    {
+                        <span style="font-size: 11px; color: var(--text-muted);">No Roles</span>
+                    }
+                    else
+                    {
+                        foreach (var r in u.Roles)
+                        {
+                            <span class="badge" style="background-color: rgba(79, 70, 229, 0.1); color: #818cf8; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; border: 1px solid rgba(79, 70, 229, 0.2);">
+                                @r
+                            </span>
+                        }
+                    }
+                </div>
+            </td>
+            <td>
+                <span class="badge" style="background-color: @(u.IsActive ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)"); color: @(u.IsActive ? "#34d399" : "#fca5a5"); padding: 6px 12px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; border: 1px solid @(u.IsActive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)")">
+                    @(u.IsActive ? "Active" : "Deactivated")
+                </span>
+            </td>
+            <td style="color: var(--text-muted); font-size: 13px;">@u.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+            <td class="text-end">
+                <a href="/users/@u.Id/edit" class="btn btn-sm" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2); text-decoration: none; font-size: 13px; cursor: pointer;">
+                    Edit
+                </a>
+            </td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private IReadOnlyList<UserDto>? users;
+    private string SearchTerm = string.Empty;
+    private int Page = 1;
+    private int PageSize = 10;
+    private int TotalCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var result = await Mediator.Send(new GetUsersQuery(SearchTerm, Page, PageSize));
+        if (result.IsSuccess)
+        {
+            users = result.Value.Items;
+            TotalCount = result.Value.TotalCount;
+        }
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        await LoadData();
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        await LoadData();
+    }
+}

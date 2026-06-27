@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,5 +106,32 @@ public class EFStockAdjustmentRepository : EFRepository<StockAdjustment>, IStock
         }
 
         return $"{prefix}{sequence:D4}";
+    }
+
+    public async Task<IReadOnlyList<StockAdjustmentItem>> GetAdjustmentReportAsync(Guid? warehouseId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default)
+    {
+        var query = DbContext.Set<StockAdjustmentItem>().AsNoTracking()
+            .Include(sai => sai.StockAdjustment)
+                .ThenInclude(sa => sa.Warehouse)
+            .Include(sai => sai.Product)
+            .Include(sai => sai.Location)
+            .AsQueryable();
+
+        if (warehouseId.HasValue)
+        {
+            query = query.Where(sai => sai.StockAdjustment.WarehouseId == warehouseId.Value);
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(sai => sai.StockAdjustment.AdjustmentDate >= startDate.Value.ToUniversalTime());
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(sai => sai.StockAdjustment.AdjustmentDate <= endDate.Value.ToUniversalTime());
+        }
+
+        return await query.OrderByDescending(sai => sai.StockAdjustment.AdjustmentDate).ToListAsync(cancellationToken);
     }
 }

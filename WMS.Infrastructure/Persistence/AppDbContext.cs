@@ -47,6 +47,7 @@ public class AppDbContext : IdentityDbContext<AppUser, AppRole, Guid>, IUnitOfWo
 
     // Reporting / System
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     // Inventory
     public DbSet<Stock> Stocks => Set<Stock>();

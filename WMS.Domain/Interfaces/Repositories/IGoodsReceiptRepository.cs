@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using WMS.Domain.Entities.Inbound;
@@ -20,4 +21,6 @@ public interface IGoodsReceiptRepository : IRepository<GoodsReceipt>
         CancellationToken cancellationToken = default);
 
     Task<string> GetNextGRNumberAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<GoodsReceiptItem>> GetInboundReportAsync(Guid? supplierId, DateTime? startDate, DateTime? endDate, CancellationToken cancellationToken = default);
 }

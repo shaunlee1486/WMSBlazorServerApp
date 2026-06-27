@@ -1,0 +1,134 @@
+@using WMS.Application.Features.Stock.DTOs
+@using WMS.Application.Features.Stock.Queries
+@inject IMediator Mediator
+@implements IDisposable
+
+<div style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; min-height: 380px;">
+    <h3 style="font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 20px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+        <svg style="width: 18px; height: 18px; color: var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Recent Activity Feed
+    </h3>
+
+    @if (loading)
+    {
+        <div style="display: flex; justify-content: center; align-items: center; height: 250px;">
+            <div class="spinner-border text-primary" role="status" style="width: 2rem; height: 2rem; color: var(--primary) !important;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (movements == null || !movements.Any())
+        {
+            <div style="display: flex; justify-content: center; align-items: center; height: 250px; color: var(--text-muted);">
+                No recent movements recorded.
+            </div>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--card-border);">
+                            <th style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Time</th>
+                            <th style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Product</th>
+                            <th style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Type</th>
+                            <th style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; text-align: right;">Qty</th>
+                            <th style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Ref</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in movements)
+                        {
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.02);">
+                                <td style="padding: 10px 12px; font-size: 12px; color: var(--text-muted);">@m.CreatedAt.ToLocalTime().ToString("HH:mm:ss")</td>
+                                <td style="padding: 10px 12px;">
+                                    <span style="font-weight: 600; color: var(--text-main); font-size: 13px;">@m.ProductCode</span>
+                                </td>
+                                <td style="padding: 10px 12px;">
+                                    <span class="badge" style="background-color: @GetMovementBgColor(m.MovementType); color: @GetMovementTextColor(m.MovementType); font-size: 10px; padding: 2px 6px; border-radius: 4px;">
+                                        @m.MovementType
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 12px; text-align: right; font-weight: 600; font-size: 13px; color: var(--text-main);">@m.Quantity</td>
+                                <td style="padding: 10px 12px; font-family: monospace; font-size: 12px; color: var(--text-muted);">@m.ReferenceNo</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private IReadOnlyList<StockMovementDto>? movements;
+    private System.Threading.Timer? timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        // Poll every 10 seconds to update recent activities
+        timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadData();
+                StateHasChanged();
+            });
+        }, null, 10000, 10000);
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetStockMovementsQuery(null, "CreatedAt", "desc", 1, 6));
+            if (result.IsSuccess)
+            {
+                movements = result.Value.Items;
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetMovementBgColor(string type)
+    {
+        return type.ToLower() switch
+        {
+            "receipt" => "rgba(16, 185, 129, 0.1)",
+            "issue" => "rgba(239, 68, 68, 0.1)",
+            "transfer" => "rgba(59, 130, 246, 0.1)",
+            "adjustment" => "rgba(245, 158, 11, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetMovementTextColor(string type)
+    {
+        return type.ToLower() switch
+        {
+            "receipt" => "#34d399",
+            "issue" => "#fca5a5",
+            "transfer" => "#60a5fa",
+            "adjustment" => "#fbbf24",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

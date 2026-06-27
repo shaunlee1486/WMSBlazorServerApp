@@ -1,0 +1,226 @@
+@page "/reports/movements"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IRepository<WMS.Domain.Entities.MasterData.Product> ProductRepository
+@inject IRepository<WMS.Domain.Entities.MasterData.Location> LocationRepository
+@inject IJSRuntime JS
+
+<PageTitle>WMS - Stock Movement History</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/reports" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Reports Portal
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">Movement History Report</h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Track chronological records of stock adjustments, issues, receipts, and internal transfers.</p>
+</div>
+
+<!-- Filter Controls -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Product</label>
+        <select class="form-control" @bind="SelectedProductId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%;">
+            <option value="">All Products</option>
+            @if (products != null)
+            {
+                foreach (var p in products)
+                {
+                    <option value="@p.Id">@p.Code (@p.Name)</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Bin Location</label>
+        <select class="form-control" @bind="SelectedLocationId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%;">
+            <option value="">All Locations</option>
+            @if (locations != null)
+            {
+                foreach (var l in locations)
+                {
+                    <option value="@l.Id">@l.Barcode</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Type</label>
+        <select class="form-control" @bind="SelectedMovementType" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%;">
+            <option value="">All Types</option>
+            <option value="Receipt">Receipt</option>
+            <option value="Issue">Issue</option>
+            <option value="Transfer">Transfer</option>
+            <option value="Adjustment">Adjustment</option>
+            <option value="Return">Return</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Start Date</label>
+        <input type="date" class="form-control" @bind="StartDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box;" />
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">End Date</label>
+        <input type="date" class="form-control" @bind="EndDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box;" />
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" @onclick="LoadData" style="padding: 11px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">
+            Filter
+        </button>
+        <button class="btn" @onclick="ExportCsv" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); padding: 11px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            CSV
+        </button>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (items == null || !items.Any())
+    {
+        <div style="background: rgba(30, 41, 59, 0.2); border: 1px solid var(--card-border); border-radius: 12px; padding: 48px; text-align: center; color: var(--text-muted);">
+            No movement records match the filters.
+        </div>
+    }
+    else
+    {
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px;">
+            <div style="overflow-x: auto;">
+                <table class="wms-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Timestamp</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Product</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Type</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border); text-align: right;">Quantity</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">From Location</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">To Location</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Reference</th>
+                            <th style="padding: 12px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--card-border);">Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var x in items)
+                        {
+                            <tr>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-size: 13px; color: var(--text-muted);">
+                                    @x.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <span style="font-weight: 600; color: var(--text-main);">@x.ProductCode</span>
+                                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">@x.ProductName</div>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                                    <span class="badge" style="background-color: @GetMovementBgColor(x.MovementType); color: @GetMovementTextColor(x.MovementType); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase;">
+                                        @x.MovementType
+                                    </span>
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right; font-weight: 600;">
+                                    @x.Quantity
+                                </td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-family: monospace;">@x.FromLocationBarcode</td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-family: monospace;">@x.ToLocationBarcode</td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-family: monospace; font-size: 13px; color: var(--text-main);">@x.ReferenceNo</td>
+                                <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-size: 13px; color: var(--text-muted);">@(x.Note ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Product>? products;
+    private IReadOnlyList<WMS.Domain.Entities.MasterData.Location>? locations;
+    private List<MovementReportDto>? items;
+
+    private Guid? SelectedProductId;
+    private Guid? SelectedLocationId;
+    private string SelectedMovementType = string.Empty;
+    private DateTime? StartDate;
+    private DateTime? EndDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductRepository.FindAsync(p => p.IsActive, CancellationToken.None);
+        locations = await LocationRepository.FindAsync(l => l.IsActive, CancellationToken.None);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        var result = await Mediator.Send(new GetMovementHistoryReportQuery(
+            SelectedProductId, SelectedLocationId, SelectedMovementType, StartDate, EndDate, null));
+        if (result.IsSuccess)
+        {
+            items = result.Value;
+        }
+        loading = false;
+    }
+
+    private string GetMovementBgColor(string type)
+    {
+        return type.ToLower() switch
+        {
+            "receipt" => "rgba(16, 185, 129, 0.1)",
+            "issue" => "rgba(239, 68, 68, 0.1)",
+            "transfer" => "rgba(59, 130, 246, 0.1)",
+            "adjustment" => "rgba(245, 158, 11, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetMovementTextColor(string type)
+    {
+        return type.ToLower() switch
+        {
+            "receipt" => "#34d399",
+            "issue" => "#fca5a5",
+            "transfer" => "#60a5fa",
+            "adjustment" => "#fbbf24",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private async Task ExportCsv()
+    {
+        if (items == null || !items.Any()) return;
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Timestamp,Product Code,Product Name,Type,Quantity,From Location,To Location,Reference,Remarks");
+
+        foreach (var x in items)
+        {
+            csv.AppendLine($"\"{x.CreatedAt:yyyy-MM-dd HH:mm:ss}\",\"{x.ProductCode}\",\"{x.ProductName.Replace("\"", "\"\"")}\",\"{x.MovementType}\",{x.Quantity},\"{x.FromLocationBarcode}\",\"{x.ToLocationBarcode}\",\"{x.ReferenceNo}\",\"{x.Note?.Replace("\"", "\"\"")}\"");
+        }
+
+        var fileName = $"MovementHistory_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        await JS.InvokeVoidAsync("downloadFile", fileName, "text/csv", csv.ToString());
+    }
+}

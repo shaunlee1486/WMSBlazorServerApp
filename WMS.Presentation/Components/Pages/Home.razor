@@ -1,5 +1,6 @@
 @page "/"
 @attribute [Authorize]
+@inject IMediator Mediator
 
 <PageTitle>WMS Dashboard</PageTitle>
 
@@ -14,7 +15,9 @@
         <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
             <div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Total Products</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--text-main);">24</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--text-main);">
+                    @if (loading) { <span style="font-size: 18px; color: var(--text-muted);">Loading...</span> } else { @(stats?.TotalProducts ?? 0) }
+                </div>
             </div>
             <div style="background: rgba(79, 70, 229, 0.1); color: var(--primary); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                 <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -28,7 +31,9 @@
         <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
             <div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Low Stock Alerts</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--danger);">3</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--danger);">
+                    @if (loading) { <span style="font-size: 18px; color: var(--text-muted);">Loading...</span> } else { @(stats?.LowStockCount ?? 0) }
+                </div>
             </div>
             <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                 <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -44,7 +49,9 @@
         <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
             <div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Pending Inbound POs</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--accent);">5</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--accent);">
+                    @if (loading) { <span style="font-size: 18px; color: var(--text-muted);">Loading...</span> } else { @(stats?.PendingPOsCount ?? 0) }
+                </div>
             </div>
             <div style="background: rgba(14, 165, 233, 0.1); color: var(--accent); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                 <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -58,7 +65,9 @@
         <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">
             <div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Open Sales Orders</div>
-                <div style="font-size: 28px; font-weight: 700; color: var(--success);">12</div>
+                <div style="font-size: 28px; font-weight: 700; color: var(--success);">
+                    @if (loading) { <span style="font-size: 18px; color: var(--text-muted);">Loading...</span> } else { @(stats?.OpenSOsCount ?? 0) }
+                </div>
             </div>
             <div style="background: rgba(16, 185, 129, 0.1); color: var(--success); width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                 <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -68,6 +77,25 @@
                 </svg>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="row g-4" style="margin-bottom: 32px;">
+    <div class="col-md-6">
+        <StockValueChart />
+    </div>
+    <div class="col-md-6">
+        <TopProductsChart />
+    </div>
+</div>
+
+<div class="row g-4" style="margin-bottom: 32px;">
+    <div class="col-md-8">
+        <InboundOutboundChart />
+    </div>
+    <div class="col-md-4">
+        <RecentMovements />
     </div>
 </div>
 
@@ -97,10 +125,10 @@
                     <strong style="font-size: 14px;">Stock Ledger</strong>
                     <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Track inventory levels across locations.</span>
                 </a>
-                <div style="opacity: 0.5; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main);">
+                <a href="reports" style="text-decoration: none; display: flex; flex-direction: column; padding: 16px; border: 1px solid var(--card-border); border-radius: 8px; background: rgba(15, 23, 42, 0.4); color: var(--text-main); transition: background-color 0.2s;">
                     <strong style="font-size: 14px;">Reports Portal</strong>
                     <span style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">View movements, audits & summaries.</span>
-                </div>
+                </a>
             </div>
         </div>
     </div>
@@ -135,3 +163,28 @@
         </div>
     </div>
 </div>
+
+@code {
+    private bool loading = true;
+    private DashboardStatsDto? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetDashboardStatsQuery());
+            if (result.IsSuccess)
+            {
+                stats = result.Value;
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

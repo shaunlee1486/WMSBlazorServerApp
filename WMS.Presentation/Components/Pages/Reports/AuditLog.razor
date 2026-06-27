@@ -1,0 +1,339 @@
+@page "/reports/audit-logs"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject IRepository<WMS.Domain.Entities.Identity.AppUser> UserRepository
+@inject IJSRuntime JS
+
+<PageTitle>WMS - System Audit Trails</PageTitle>
+
+<div class="dashboard-header" style="margin-bottom: 32px;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <a href="/reports" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 14px;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            Back to Reports Portal
+        </a>
+    </div>
+    <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-main);">System Audit Trails</h1>
+    <p style="color: var(--text-muted); margin: 0; font-size: 15px;">Monitor record modifications, audit events, and JSON database state diffs.</p>
+</div>
+
+<!-- Filter Controls -->
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr 1.2fr 1.2fr auto; gap: 16px; align-items: end;">
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Entity / Module</label>
+        <select class="form-control" @bind="SelectedEntityName" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+            <option value="">All Entities</option>
+            <option value="Product">Product</option>
+            <option value="Stock">Stock</option>
+            <option value="Warehouse">Warehouse</option>
+            <option value="PurchaseOrder">PurchaseOrder</option>
+            <option value="SalesOrder">SalesOrder</option>
+            <option value="TransferOrder">TransferOrder</option>
+            <option value="Return">Return</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Action</label>
+        <select class="form-control" @bind="SelectedAction" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+            <option value="">All Actions</option>
+            <option value="Create">Create</option>
+            <option value="Update">Update</option>
+            <option value="Delete">Delete</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">User Operator</label>
+        <select class="form-control" @bind="SelectedUserId" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; cursor: pointer;">
+            <option value="">All Users</option>
+            @if (users != null)
+            {
+                foreach (var u in users)
+                {
+                    <option value="@u.Id">@u.FullName (@u.Email)</option>
+                }
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">Start Date</label>
+        <input type="date" class="form-control" @bind="StartDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box;" />
+    </div>
+
+    <div class="form-group">
+        <label style="color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; display: block;">End Date</label>
+        <input type="date" class="form-control" @bind="EndDate" style="background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); color: var(--text-main); border-radius: 8px; padding: 10px 16px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box;" />
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" @onclick="Search" style="padding: 11px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">
+            Filter
+        </button>
+        <button class="btn" @onclick="ExportCsv" style="border: 1px solid var(--card-border); color: var(--text-main); background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); padding: 11px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            CSV
+        </button>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div style="display: flex; justify-content: center; align-items: center; padding: 80px 0;">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; color: var(--primary) !important;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    @if (items == null || !items.Any())
+    {
+        <div style="background: rgba(30, 41, 59, 0.2); border: 1px solid var(--card-border); border-radius: 12px; padding: 48px; text-align: center; color: var(--text-muted);">
+            No audit logs found.
+        </div>
+    }
+    else
+    {
+        <DataTable TItem="AuditLogReportDto"
+                   Items="items"
+                   ColSpan="5"
+                   Page="Page"
+                   PageSize="PageSize"
+                   TotalCount="TotalCount"
+                   OnPageChanged="OnPageChanged">
+            <HeaderTemplate>
+                <th>Timestamp</th>
+                <th>Operator</th>
+                <th>Action</th>
+                <th>Record Info</th>
+                <th class="text-end">Details</th>
+            </HeaderTemplate>
+            <RowTemplate Context="x">
+                <tr>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-size: 13px; color: var(--text-muted);">
+                        @x.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                    </td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); font-weight: 600; color: var(--text-main);">
+                        @x.UserEmail
+                    </td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                        <span class="badge" style="background-color: @GetActionBgColor(x.Action); color: @GetActionTextColor(x.Action); padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase;">
+                            @x.Action
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border);">
+                        <span style="font-weight: 600; color: var(--text-main);">@x.EntityName</span>
+                        <div style="font-size: 11px; color: var(--text-muted); font-family: monospace; margin-top: 2px;">ID: @x.EntityId</div>
+                    </td>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid var(--card-border); text-align: right;">
+                        <button class="btn btn-sm" @onclick="() => ToggleExpanded(x.Id)" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--card-border); color: var(--text-muted); background: rgba(15, 23, 42, 0.2); font-size: 12px; cursor: pointer;">
+                            @(ExpandedIds.Contains(x.Id) ? "Hide Changes" : "Show Changes")
+                        </button>
+                    </td>
+                </tr>
+                @if (ExpandedIds.Contains(x.Id))
+                {
+                    <tr>
+                        <td colspan="5" style="background: rgba(15, 23, 42, 0.5); padding: 20px; border-bottom: 1px solid var(--card-border);">
+                            <div style="font-size: 14px; font-weight: 700; color: var(--text-main); margin-bottom: 12px;">Field-Level Audit Diff</div>
+                            
+                            @{
+                                var changes = GetChanges(x.OldValues, x.NewValues);
+                            }
+
+                            @if (!changes.Any())
+                            {
+                                <div style="font-size: 13px; color: var(--text-muted);">No field changes detected or audit data represents a direct insertion/deletion.</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+                                    @if (!string.IsNullOrEmpty(x.OldValues))
+                                    {
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Deleted JSON Snapshot</div>
+                                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); padding: 12px; border-radius: 6px; color: #a7f3d0; font-family: monospace; font-size: 12px; overflow-x: auto; margin: 0;">@x.OldValues</pre>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(x.NewValues))
+                                    {
+                                        <div>
+                                            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Created JSON Snapshot</div>
+                                            <pre style="background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); padding: 12px; border-radius: 6px; color: #a7f3d0; font-family: monospace; font-size: 12px; overflow-x: auto; margin: 0;">@x.NewValues</pre>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden;">
+                                    <thead>
+                                        <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--card-border);">
+                                            <th style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; width: 25%;">Property</th>
+                                            <th style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; width: 37.5%; color: #fca5a5;">Before</th>
+                                            <th style="padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; width: 37.5%; color: #34d399;">After</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var c in changes)
+                                        {
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                                                <td style="padding: 8px 16px; font-weight: 600; color: var(--text-main); font-size: 13px;">@c.Key</td>
+                                                <td style="padding: 8px 16px; font-family: monospace; font-size: 13px; color: #fca5a5; background: rgba(239, 68, 68, 0.05); text-decoration: line-through;">
+                                                    @(c.OldVal ?? "NULL")
+                                                </td>
+                                                <td style="padding: 8px 16px; font-family: monospace; font-size: 13px; color: #34d399; background: rgba(16, 185, 129, 0.05);">
+                                                    @(c.NewVal ?? "NULL")
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </td>
+                    </tr>
+                }
+            </RowTemplate>
+        </DataTable>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private IReadOnlyList<WMS.Domain.Entities.Identity.AppUser>? users;
+    private IReadOnlyList<AuditLogReportDto>? items;
+
+    private string SelectedEntityName = string.Empty;
+    private string SelectedAction = string.Empty;
+    private Guid? SelectedUserId;
+    private DateTime? StartDate;
+    private DateTime? EndDate;
+
+    private int Page = 1;
+    private int PageSize = 15;
+    private int TotalCount;
+
+    private HashSet<Guid> ExpandedIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = await UserRepository.GetAllAsync(CancellationToken.None);
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        loading = true;
+        var result = await Mediator.Send(new GetAuditLogsQuery(
+            SelectedEntityName, SelectedAction, StartDate, EndDate, SelectedUserId, Page, PageSize));
+        if (result.IsSuccess)
+        {
+            items = result.Value.Items;
+            TotalCount = result.Value.TotalCount;
+        }
+        loading = false;
+    }
+
+    private async Task Search()
+    {
+        Page = 1;
+        ExpandedIds.Clear();
+        await LoadData();
+    }
+
+    private async Task OnPageChanged(int newPage)
+    {
+        Page = newPage;
+        ExpandedIds.Clear();
+        await LoadData();
+    }
+
+    private void ToggleExpanded(Guid id)
+    {
+        if (ExpandedIds.Contains(id))
+        {
+            ExpandedIds.Remove(id);
+        }
+        else
+        {
+            ExpandedIds.Add(id);
+        }
+    }
+
+    private string GetActionBgColor(string action)
+    {
+        return action.ToLower() switch
+        {
+            "create" => "rgba(16, 185, 129, 0.1)",
+            "update" => "rgba(59, 130, 246, 0.1)",
+            "delete" => "rgba(239, 68, 68, 0.1)",
+            _ => "rgba(255, 255, 255, 0.05)"
+        };
+    }
+
+    private string GetActionTextColor(string action)
+    {
+        return action.ToLower() switch
+        {
+            "create" => "#34d399",
+            "update" => "#60a5fa",
+            "delete" => "#fca5a5",
+            _ => "var(--text-muted)"
+        };
+    }
+
+    private List<(string Key, string? OldVal, string? NewVal)> GetChanges(string? oldJson, string? newJson)
+    {
+        var changes = new List<(string Key, string? OldVal, string? NewVal)>();
+        try
+        {
+            var oldDict = string.IsNullOrEmpty(oldJson) ? new Dictionary<string, object>() : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(oldJson);
+            var newDict = string.IsNullOrEmpty(newJson) ? new Dictionary<string, object>() : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(newJson);
+
+            var keys = (oldDict?.Keys ?? Enumerable.Empty<string>()).Union(newDict?.Keys ?? Enumerable.Empty<string>()).OrderBy(k => k);
+            foreach (var key in keys)
+            {
+                object? oldVal = null;
+                oldDict?.TryGetValue(key, out oldVal);
+
+                object? newVal = null;
+                newDict?.TryGetValue(key, out newVal);
+
+                var oldStr = oldVal?.ToString();
+                var newStr = newVal?.ToString();
+
+                if (oldStr != newStr)
+                {
+                    changes.Add((key, oldStr, newStr));
+                }
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
+        return changes;
+    }
+
+    private async Task ExportCsv()
+    {
+        if (items == null || !items.Any()) return;
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Timestamp,Operator,Action,Entity,Entity ID,Old Values,New Values");
+
+        foreach (var x in items)
+        {
+            csv.AppendLine($"\"{x.Timestamp:yyyy-MM-dd HH:mm:ss}\",\"{x.UserEmail}\",\"{x.Action}\",\"{x.EntityName}\",\"{x.EntityId}\",\"{x.OldValues?.Replace("\"", "\"\"")}\",\"{x.NewValues?.Replace("\"", "\"\"")}\"");
+        }
+
+        var fileName = $"AuditLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+        await JS.InvokeVoidAsync("downloadFile", fileName, "text/csv", csv.ToString());
+    }
+}

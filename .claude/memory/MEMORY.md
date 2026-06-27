@@ -52,5 +52,8 @@
 - **[x] Phase 6 — Transfer Orders & Returns**
   - **Transfer Orders:** Draft, approve, ship (reserves stock at source location), and receive (decrements source stock, increments destination stock, and registers Transfer stock movements).
   - **Returns Ledger:** Customer and supplier returns. Supplier returns decrement inventory. Customer returns support line-by-line inspection (Accepted/Rejected) and increment target bin stock only for Accepted items upon completion.
-- **[ ] Phase 7 — Dashboard, Reports & User Management** (Upcoming)
+- **[x] Phase 7 — Dashboard, Reports & User Management**
+  - **Dashboard:** Interactive charts (ApexCharts) for category stock values, inbound vs outbound volume, and top products by transaction, along with a live-updating movements feed.
+  - **Reports Portal:** Advanced filters (category, warehouse, date range, user/supplier/customer) and CSV exports for Stock Snapshot, Movement History, Inbound Receipts, Outbound Issues, Stock Adjustments, and granular Audit Logs.
+  - **User & Settings:** Administrative creation/editing of users, role assignment permissions (Admin, Manager, Receiver, Picker, etc.), password resets, self-service updates, and global company variable/currency config configurations.
 - **[ ] Phase 8 — Hardening, Production Readiness & Deployment** (Upcoming)
